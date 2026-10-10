@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RouteWise - Interactive Route Planner</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="planner.css">
 </head>
 <body>
 
@@ -24,36 +25,107 @@
 
   <!-- Main Planner Two-Column Layout -->
   <main class="planner-layout">
-    <!-- Left Column: Map Area Placeholder -->
+    <!-- Left Column: Map Area -->
     <section class="map-panel" id="map-container">
-      <div style="text-align: center; color: var(--text-muted); padding: var(--space-6);">
-        <p style="font-size: var(--font-size-lg); font-weight: 500; margin-bottom: var(--space-2);">
-          Interactive Map Canvas
-        </p>
-        <p style="font-size: var(--font-size-sm);">
-          Network graph and route visualization will render here.
-        </p>
+      <div class="planner-container" style="width: 100%;">
+        <!-- Toolbar -->
+        <div class="toolbar-card">
+          <div class="toolbar-actions" role="toolbar" aria-label="Map drawing tools">
+            <button id="tool-add-junction" class="tool-btn active" data-tool="add-junction" title="Add Junction (Click canvas)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+              <span>Add junction</span>
+            </button>
+            <button id="tool-add-street" class="tool-btn" data-tool="add-street" title="Add Street (Click two junctions)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12h16M4 12l4-4M4 12l4 4M20 12l-4-4M20 12l-4 4"/></svg>
+              <span>Add street</span>
+            </button>
+            <button id="tool-move" class="tool-btn" data-tool="move" title="Move Junction (Drag junction)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
+              <span>Move</span>
+            </button>
+            <button id="tool-delete" class="tool-btn" data-tool="delete" title="Delete Element (Click element to remove)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span>Delete</span>
+            </button>
+            <button id="tool-clear" class="tool-btn" title="Clear entire map">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3l18 18M9 3h6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12"/></svg>
+              <span>Clear</span>
+            </button>
+
+            <div class="toolbar-separator"></div>
+
+            <div class="examples-select-wrapper">
+              <label for="examples-dropdown" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Examples:</label>
+              <select id="examples-dropdown" class="examples-select" aria-label="Load Example Street Map">
+                <option value="" disabled selected>Load example...</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="tool-tip-text" class="tool-tip">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>Click empty space on the grid to place a junction.</span>
+          </div>
+        </div>
+
+        <!-- Map Card -->
+        <div class="map-card">
+          <svg id="map-svg" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <pattern id="grid-dots" width="30" height="30" patternUnits="userSpaceOnUse">
+                <circle cx="15" cy="15" r="1.5" fill="#CBD5E1"/>
+              </pattern>
+            </defs>
+            <rect width="900" height="600" fill="url(#grid-dots)"/>
+            <g id="street-layer"></g>
+            <g id="route-layer"></g>
+            <g id="junction-layer"></g>
+          </svg>
+
+          <!-- Legend -->
+          <div class="map-legend" aria-hidden="true">
+            <div class="legend-item">
+              <span class="legend-dot odd"></span>
+              <span>Odd junction (glow)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot even"></span>
+              <span>Even junction</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line"></span>
+              <span>Street</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line route"></span>
+              <span>Route</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line repeat"></span>
+              <span>Repeated street</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="map-note">Lines may cross; a crossing is not a junction.</p>
       </div>
     </section>
 
     <!-- Right Column: Analysis Panel with Three Cards -->
-    <aside class="analysis-panel">
+    <aside class="analysis-panel" aria-live="polite">
       <!-- Card 1: Verdict -->
       <div class="card" id="card-verdict">
         <h2 class="card-title">Verdict</h2>
-        <!-- Analysis verdict will populate here -->
       </div>
 
       <!-- Card 2: Degrees -->
       <div class="card" id="card-degrees">
         <h2 class="card-title">Degrees</h2>
-        <!-- Junction degrees will populate here -->
       </div>
 
       <!-- Card 3: Route -->
       <div class="card" id="card-route">
         <h2 class="card-title">Route</h2>
-        <!-- Planned route sequence and metrics will populate here -->
       </div>
     </aside>
   </main>
@@ -67,6 +139,9 @@
       Department of Computer Science &amp; Engineering | Nirma University
     </div>
   </footer>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Scripts -->
   <script src="presets.js"></script>
