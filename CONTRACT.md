@@ -1,111 +1,152 @@
 # RouteWise API & Data Contract
 
-This document defines the shared data schemas, core graph algorithms contract, and standard practice map dataset for RouteWise.
+This document defines the shared data schemas, function signatures, and standard practice map dataset for RouteWise according to the Master Project Brief.
 
 ---
 
-## 1. Data Formats
+## 1. Graph Data Model
 
-### Graph Structure
-The colony street network is modeled as an undirected, weighted graph:
+The street network is modeled as an undirected, weighted graph:
 
-```json
-{
-  "nodes": [
-    { "id": "A", "label": "Junction A", "x": 100, "y": 150 }
+```javascript
+const graph = {
+  junctions: [
+    { id: "A", x: 200, y: 150 },
+    { id: "B", x: 650, y: 150 },
+    { id: "C", x: 650, y: 450 },
+    { id: "D", x: 200, y: 450 }
   ],
-  "edges": [
-    { "id": "e1", "u": "A", "v": "B", "weight": 120, "name": "Main Street" }
+  streets: [
+    { id: 1, from: "A", to: "B", length: 2 },
+    { id: 2, from: "A", to: "C", length: 3 },
+    { id: 3, from: "A", to: "D", length: 4 },
+    { id: 4, from: "B", to: "C", length: 6 },
+    { id: 5, from: "B", to: "D", length: 5 },
+    { id: 6, from: "C", to: "D", length: 1 }
   ]
-}
+};
 ```
 
-- **Node / Junction:**
-  - `id` (`string`): Unique identifier for the junction (e.g., `"A"`, `"B"`).
-  - `label` (`string`): Human-readable name.
-  - `x`, `y` (`number`): Coordinates for 2D map visualization.
-
-- **Edge / Street:**
-  - `id` (`string`): Unique edge identifier.
-  - `u` (`string`): First endpoint node ID.
-  - `v` (`string`): Second endpoint node ID.
-  - `weight` (`number`): Length / travel cost of the street in meters.
-  - `name` (`string`): Street name.
+- **Junctions:**
+  - `id` (`string`): "A", "B", ... "Z", "A1", etc.
+  - `x`, `y` (`number`): SVG canvas coordinates (`viewBox="0 0 900 600"`).
+- **Streets:**
+  - `id` (`number`): Unique integer.
+  - `from` (`string`), `to` (`string`): Connected junction IDs.
+  - `length` (`number`): Positive number (metres in UI).
+- **Step Object** (traversal steps):
+```javascript
+{
+  index: 1,
+  from: "A",
+  to: "B",
+  streetId: 1,
+  length: 2,
+  isRepeat: false,
+  runningTotal: 2
+}
+```
 
 ---
 
 ## 2. Core Logic Functions (`logic.js`)
 
-Each algorithm function operates on the graph data format defined above:
+All 8 functions + helper operates on the graph model:
 
-### `getDegrees(graph)`
-- **Input:** `graph` object `{ nodes, edges }`
-- **Output:** `Object.<string, number>` map of node ID to degree count.
-- **Example:** `{ "A": 3, "B": 2, "C": 4 }`
+### 1. `getDegrees(graph)`
+- **Returns:** `{ [junctionId]: number }` (e.g., `{ A: 3, B: 3, C: 3, D: 3 }`). Every junction ID appears, including degree 0.
 
-### `getOddJunctions(graph)`
-- **Input:** `graph` object `{ nodes, edges }`
-- **Output:** `string[]` array of node IDs with an odd degree.
-- **Example:** `["A", "D"]`
+### 2. `getOddJunctions(graph)`
+- **Returns:** `string[]` (e.g., `["A", "B", "C", "D"]`). Sorted alphabetically.
 
-### `isConnected(graph)`
-- **Input:** `graph` object `{ nodes, edges }`
-- **Output:** `boolean` — `true` if all nodes with degree > 0 belong to a single connected component.
+### 3. `checkHandshaking(graph)`
+- **Returns:** `{ sumOfDegrees: number, twiceStreets: number, holds: boolean }`.
+- `holds` must always be `true` ($\sum \deg(v) = 2 \times |E|$).
 
-### `getVerdict(graph)`
-- **Input:** `graph` object `{ nodes, edges }`
-- **Output:**
+### 4. `isConnected(graph)`
+- **Returns:** `boolean`. Checks reachability across all junctions with degree > 0. Graph with no streets returns `false`.
+
+### 5. `getVerdict(graph)`
+- **Returns:**
   ```javascript
   {
-    isEulerian: boolean,        // true if all vertices have even degree and connected
-    isSemiEulerian: boolean,    // true if exactly 2 vertices have odd degree and connected
-    oddCount: number,           // count of odd vertices
-    oddNodes: string[],         // list of odd vertices
-    message: string             // human-readable summary verdict
+    type: "circuit" | "path" | "repeats" | "not-connected" | "empty",
+    oddJunctions: string[],
+    connected: boolean,
+    startOptions: string[], // all active junctions for circuit, the two odd junctions for path, empty otherwise
+    message: string         // friendly UI summary sentence
   }
   ```
 
-### `findRoute(graph, startNode)`
-- **Input:** `graph`, `startNode` (`string`)
-- **Output:** `string[]` sequence of node visits for an exact Eulerian circuit/trail (if Eulerian or semi-Eulerian), or `null` if not traversable without re-traversing edges.
+### 6. `shortestPaths(graph)` & `getPath(next, a, b)`
+- **`shortestPaths(graph)` Returns:** `{ dist, next }` using Floyd-Warshall.
+- **`getPath(next, a, b)` Returns:** `string[]` of junction IDs along the shortest path from `a` to `b`.
 
-### `solvePostman(graph, startNode)`
-- **Input:** `graph`, `startNode` (`string`)
-- **Output:**
+### 7. `findRoute(graph, start)`
+- Only for verdict `circuit` or `path`. For path, `start` must be an odd junction.
+- **Returns:**
   ```javascript
   {
-    route: string[],            // complete sequence of visited node IDs starting and ending at startNode
-    totalDistance: number,      // total distance covered including duplicates
-    duplicatedEdges: Array<{ u: string, v: string, weight: number }>, // streets repeated
-    originalDistance: number    // sum of all street lengths
+    ok: boolean,
+    start: string | null,
+    end: string | null,
+    route: string[],
+    steps: Array<Step>,
+    totalDistance: number,
+    error: string | null
+  }
+  ```
+
+### 8. `solvePostman(graph)`
+- Handles every verdict (circuit, path, repeats, not-connected, empty).
+- **Returns:**
+  ```javascript
+  {
+    ok: boolean,
+    type: "circuit" | "path" | "repeats" | "not-connected" | "empty",
+    oddJunctions: string[],
+    pairingsTried: number,
+    pairings: [
+      { pairs: [["A", "B"], ["C", "D"]], cost: 3, chosen: true }
+    ],
+    repeatedStreetIds: number[],
+    originalLength: number,
+    extraDistance: number,
+    totalDistance: number,
+    route: string[],
+    steps: Array<Step>,
+    error: string | null
   }
   ```
 
 ---
 
-## 3. Practice Map: Sample Colony Network
-
-A practice colony graph with 6 junctions and 8 streets to test Euler Circuit and Chinese Postman Problem (CPP):
+## 3. Practice Map (Section 7 Map 1: Hand-calculation)
 
 ```javascript
 const practiceMap = {
-  nodes: [
-    { id: "A", label: "Sector 1 Gate", x: 100, y: 120 },
-    { id: "B", label: "Central Market", x: 300, y: 100 },
-    { id: "C", label: "School Square", x: 500, y: 140 },
-    { id: "D", label: "Park Circle", x: 120, y: 340 },
-    { id: "E", label: "Civic Centre", x: 320, y: 320 },
-    { id: "F", label: "Depot / Gate 2", x: 520, y: 350 }
+  junctions: [
+    { id: "A", x: 200, y: 150 },
+    { id: "B", x: 650, y: 150 },
+    { id: "C", x: 650, y: 450 },
+    { id: "D", x: 200, y: 450 }
   ],
-  edges: [
-    { id: "e1", u: "A", v: "B", weight: 200, name: "North Avenue" },
-    { id: "e2", u: "B", v: "C", weight: 250, name: "Market Road" },
-    { id: "e3", u: "A", v: "D", weight: 300, name: "West Ring Road" },
-    { id: "e4", u: "B", v: "E", weight: 180, name: "Central Cross St" },
-    { id: "e5", u: "C", v: "F", weight: 280, name: "East Ring Road" },
-    { id: "e6", u: "D", v: "E", weight: 220, name: "Southwest Link" },
-    { id: "e7", u: "E", v: "F", weight: 240, name: "Southeast Link" },
-    { id: "e8", u: "B", v: "D", weight: 350, name: "Diagonal Crossway" }
+  streets: [
+    { id: 1, from: "A", to: "B", length: 2 },
+    { id: 2, from: "A", to: "C", length: 3 },
+    { id: 3, from: "A", to: "D", length: 4 },
+    { id: 4, from: "B", to: "C", length: 6 },
+    { id: 5, from: "B", to: "D", length: 5 },
+    { id: 6, from: "C", to: "D", length: 1 }
   ]
 };
 ```
+
+- **Degrees:** A=3, B=3, C=3, D=3. Handshaking: $12 = 2 \times 6$.
+- **Odd junctions:** A, B, C, D. Verdict: `repeats`.
+- **Shortest distances:** AB=2, AC=3, AD=4, BC=5 (via A), BD=5, CD=1.
+- **Pairings:**
+  - {AB, CD} = $2 + 1 = 3$ (**best / chosen**)
+  - {AC, BD} = $3 + 5 = 8$
+  - {AD, BC} = $4 + 5 = 9$
+- **Original Length:** 21. **Extra Distance:** 3. **Expected Total:** 24.

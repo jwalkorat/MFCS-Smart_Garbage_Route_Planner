@@ -1,18 +1,44 @@
 /**
- * tests/logic.test.js - Unit tests placeholder for RouteWise graph algorithms
- *
- * Test suites to be implemented:
- * 1. getDegrees: Verify degree counts for isolated, line, cycle, and multi-connected graphs.
- * 2. getOddJunctions: Verify identification of odd vertices and Handshaking lemma.
- * 3. isConnected: Verify BFS/DFS connectivity check for connected and disconnected components.
- * 4. getVerdict: Verify Eulerian, Semi-Eulerian, and Non-Eulerian classification.
- * 5. findRoute: Verify valid Eulerian trail/circuit generation using Hierholzer's algorithm.
- * 6. solvePostman: Verify Chinese Postman Problem route validity and shortest path duplication.
+ * tests/logic.test.js - Contract Verification Suite
+ * Checks that all required functions exist and match the contract in Section 6.
  */
 
+const assert = require('assert');
 const logic = require('../logic.js');
+const PRESETS = require('../presets.js');
 
-console.log('Test harness initialized. Function stubs verified:');
-Object.keys(logic).forEach((fnName) => {
-  console.log(`- ${fnName}: ${typeof logic[fnName] === 'function' ? 'OK' : 'MISSING'}`);
+const requiredFunctions = [
+  'getDegrees',
+  'getOddJunctions',
+  'checkHandshaking',
+  'isConnected',
+  'getVerdict',
+  'shortestPaths',
+  'getPath',
+  'findRoute',
+  'solvePostman'
+];
+
+console.log('--- Verifying logic.js contract ---');
+let allPassed = true;
+
+requiredFunctions.forEach((fnName) => {
+  const isFn = typeof logic[fnName] === 'function';
+  if (isFn) {
+    console.log(`PASS: function ${fnName} exists`);
+  } else {
+    console.error(`FAIL: function ${fnName} is missing or not a function`);
+    allPassed = false;
+  }
 });
+
+console.log('\n--- Verifying presets.js ---');
+if (Array.isArray(PRESETS) && PRESETS.length === 5) {
+  console.log(`PASS: presets.js defines exactly 5 test maps`);
+} else {
+  console.error(`FAIL: presets.js must export an array of 5 test maps`);
+  allPassed = false;
+}
+
+assert.strictEqual(allPassed, true, 'All contract checks must pass');
+console.log('\nAll contract stubs and presets successfully verified!');

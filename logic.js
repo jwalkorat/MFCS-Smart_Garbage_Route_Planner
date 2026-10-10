@@ -5,96 +5,162 @@
  */
 
 /**
- * Calculates the degree (number of incident edges) for each junction in the graph.
- * @param {Object} graph - { nodes: Array<{id, label}>, edges: Array<{id, u, v, weight}> }
- * @returns {Object.<string, number>} Map of node IDs to their respective degree.
+ * Calculates the degree of every junction in the graph.
+ * Theorem / Idea: deg(v) = number of streets meeting at junction v.
+ * Every junction id appears, including those with degree 0.
+ * @param {Object} graph - { junctions: Array<{id, x, y}>, streets: Array<{id, from, to, length}> }
+ * @returns {Object.<string, number>} Map of junction ID to degree count.
  */
 function getDegrees(graph) {
-  // Placeholder stub: to be implemented in logic commit
+  // Placeholder stub
   return {};
 }
 
 /**
- * Identifies junctions that have an odd degree.
- * By Euler's theorem / Handshaking lemma, the number of odd-degree vertices is always even.
- * @param {Object} graph - { nodes, edges }
- * @returns {string[]} Array of node IDs with odd degree.
+ * Returns a sorted list of junction IDs that have an odd degree.
+ * Theorem / Idea: Handshaking lemma implies the number of odd-degree vertices is always even.
+ * @param {Object} graph - { junctions, streets }
+ * @returns {string[]} Alphabetically sorted array of odd-degree junction IDs.
  */
 function getOddJunctions(graph) {
-  // Placeholder stub: to be implemented in logic commit
+  // Placeholder stub
   return [];
 }
 
 /**
- * Checks if all vertices with non-zero degree are connected in a single component.
- * Uses Breadth-First Search (BFS) or Depth-First Search (DFS).
- * @param {Object} graph - { nodes, edges }
- * @returns {boolean} True if the non-trivial vertices form a single connected component.
+ * Verifies Euler's Handshaking Theorem on the given graph.
+ * Theorem: Sum of all vertex degrees = 2 * (number of edges).
+ * Every street is counted once at each of its two endpoints.
+ * @param {Object} graph - { junctions, streets }
+ * @returns {{ sumOfDegrees: number, twiceStreets: number, holds: boolean }}
+ */
+function checkHandshaking(graph) {
+  // Placeholder stub
+  return {
+    sumOfDegrees: 0,
+    twiceStreets: 0,
+    holds: true
+  };
+}
+
+/**
+ * Checks whether all junctions with degree > 0 belong to a single connected component.
+ * Theorem / Idea: Depth-First Search (DFS) / Breadth-First Search reachability.
+ * A graph with no streets returns false.
+ * @param {Object} graph - { junctions, streets }
+ * @returns {boolean} True if all non-isolated junctions are connected.
  */
 function isConnected(graph) {
-  // Placeholder stub: to be implemented in logic commit
+  // Placeholder stub
   return false;
 }
 
 /**
- * Evaluates whether the graph has an Eulerian circuit, an Eulerian trail, or is non-Eulerian.
- * - Eulerian circuit: connected and all vertices have even degree.
- * - Semi-Eulerian trail: connected and exactly 2 vertices have odd degree.
- * - Non-Eulerian: connected with > 2 odd vertices (requires Chinese Postman matching).
- * @param {Object} graph - { nodes, edges }
- * @returns {Object} Verdict summary { isEulerian, isSemiEulerian, oddCount, oddNodes, message }
+ * Classifies the graph into Eulerian categories and describes traversal feasibility.
+ * Theorem / Idea: Euler's Theorem for connected graphs:
+ * - 0 odd: Euler circuit (start & end at same junction)
+ * - 2 odd: Euler path (start at one odd junction, end at the other)
+ * - 4+ odd: Chinese Postman Problem (streets must be repeated)
+ * @param {Object} graph - { junctions, streets }
+ * @returns {{ type: string, oddJunctions: string[], connected: boolean, startOptions: string[], message: string }}
+ *   type: "empty" | "not-connected" | "circuit" | "path" | "repeats"
  */
 function getVerdict(graph) {
-  // Placeholder stub: to be implemented in logic commit
+  // Placeholder stub
   return {
-    isEulerian: false,
-    isSemiEulerian: false,
-    oddCount: 0,
-    oddNodes: [],
+    type: "empty",
+    oddJunctions: [],
+    connected: false,
+    startOptions: [],
     message: ""
   };
 }
 
 /**
- * Finds an Eulerian path or circuit using Hierholzer's or Fleury's algorithm
- * if the graph is Eulerian or semi-Eulerian.
- * @param {Object} graph - { nodes, edges }
- * @param {string} startNode - Starting node ID.
- * @returns {string[]|null} Array of node IDs in visit order, or null if not Eulerian.
+ * Computes all-pairs shortest paths using the Floyd-Warshall algorithm.
+ * Theorem / Idea: Dynamic programming formulation: d[i][j] = min(d[i][j], d[i][k] + d[k][j]).
+ * @param {Object} graph - { junctions, streets }
+ * @returns {{ dist: Object.<string, Object.<string, number>>, next: Object.<string, Object.<string, string>> }}
  */
-function findRoute(graph, startNode) {
-  // Placeholder stub: to be implemented in logic commit
-  return null;
-}
-
-/**
- * Solves the Chinese Postman Problem (CPP) for any connected graph:
- * 1. Find all odd-degree vertices.
- * 2. Compute all-pairs shortest paths (Dijkstra / Floyd-Warshall).
- * 3. Find minimum weight perfect matching among odd vertices.
- * 4. Duplicate matching paths to form an Eulerian multigraph.
- * 5. Construct the optimal Euler tour that covers every street.
- * @param {Object} graph - { nodes, edges }
- * @param {string} startNode - Starting depot/junction ID.
- * @returns {Object} { route: string[], totalDistance: number, duplicatedEdges: Array, originalDistance: number }
- */
-function solvePostman(graph, startNode) {
-  // Placeholder stub: to be implemented in logic commit
+function shortestPaths(graph) {
+  // Placeholder stub
   return {
-    route: [],
-    totalDistance: 0,
-    duplicatedEdges: [],
-    originalDistance: 0
+    dist: {},
+    next: {}
   };
 }
 
-// Export for Node/testing environment if available
-if (typeof module !== 'undefined' && module.exports) {
+/**
+ * Reconstructs the shortest path between two junctions using the Floyd-Warshall 'next' reconstruction table.
+ * @param {Object} next - Table mapping [u][v] to the next intermediate junction ID.
+ * @param {string} a - Starting junction ID.
+ * @param {string} b - Target junction ID.
+ * @returns {string[]} List of junction IDs along the shortest path from a to b.
+ */
+function getPath(next, a, b) {
+  // Placeholder stub
+  return [];
+}
+
+/**
+ * Finds an exact Euler path or circuit covering each street exactly once.
+ * Theorem / Idea: Hierholzer's Algorithm (follow unused edges, splice sub-tours).
+ * @param {Object} graph - { junctions, streets }
+ * @param {string} start - Chosen starting junction ID.
+ * @returns {{ ok: boolean, start: string|null, end: string|null, route: string[], steps: Array, totalDistance: number, error: string|null }}
+ */
+function findRoute(graph, start) {
+  // Placeholder stub
+  return {
+    ok: false,
+    start: null,
+    end: null,
+    route: [],
+    steps: [],
+    totalDistance: 0,
+    error: null
+  };
+}
+
+/**
+ * Solves the Chinese Postman Problem (CPP) to service all streets with minimum total travel distance.
+ * Steps:
+ * 1. Identify odd junctions.
+ * 2. Compute all-pairs shortest paths.
+ * 3. Find minimum-weight perfect matching among odd junctions via recursive pairing.
+ * 4. Duplicate matching streets to create an Eulerian multigraph.
+ * 5. Construct the optimal Euler tour.
+ * @param {Object} graph - { junctions, streets }
+ * @returns {Object} Solution summary { ok, type, oddJunctions, pairingsTried, pairings, repeatedStreetIds, originalLength, extraDistance, totalDistance, route, steps, error }
+ */
+function solvePostman(graph) {
+  // Placeholder stub
+  return {
+    ok: false,
+    type: "empty",
+    oddJunctions: [],
+    pairingsTried: 0,
+    pairings: [],
+    repeatedStreetIds: [],
+    originalLength: 0,
+    extraDistance: 0,
+    totalDistance: 0,
+    route: [],
+    steps: [],
+    error: null
+  };
+}
+
+// Export for Node/test environment and browser compatibility
+if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     getDegrees,
     getOddJunctions,
+    checkHandshaking,
     isConnected,
     getVerdict,
+    shortestPaths,
+    getPath,
     findRoute,
     solvePostman
   };
