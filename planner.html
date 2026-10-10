@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RouteWise - Interactive Route Planner</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Shared Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <span>RouteWise</span>
+      <span class="brand-badge">MFCS</span>
+    </div>
+    <nav>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="planner.html" class="active">Planner</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Main Planner Two-Column Layout -->
+  <main class="planner-layout">
+    <!-- Left Column: Map Area Placeholder -->
+    <section class="map-panel" id="map-container">
+      <div style="text-align: center; color: var(--text-muted); padding: var(--space-6);">
+        <p style="font-size: var(--font-size-lg); font-weight: 500; margin-bottom: var(--space-2);">
+          Interactive Map Canvas
+        </p>
+        <p style="font-size: var(--font-size-sm);">
+          Network graph and route visualization will render here.
+        </p>
+      </div>
+    </section>
+
+    <!-- Right Column: Analysis Panel with Three Cards -->
+    <aside class="analysis-panel">
+      <!-- Card 1: Verdict -->
+      <div class="card" id="card-verdict">
+        <h2 class="card-title">Verdict</h2>
+        <!-- Analysis verdict will populate here -->
+      </div>
+
+      <!-- Card 2: Degrees -->
+      <div class="card" id="card-degrees">
+        <h2 class="card-title">Degrees</h2>
+        <!-- Junction degrees will populate here -->
+      </div>
+
+      <!-- Card 3: Route -->
+      <div class="card" id="card-route">
+        <h2 class="card-title">Route</h2>
+        <!-- Planned route sequence and metrics will populate here -->
+      </div>
+    </aside>
+  </main>
+
+  <!-- Shared Footer -->
+  <footer class="footer">
+    <div class="footer-meta">
+      Mathematical Foundations for Computer Science (2CS802CC26) | Team 25BAM053, 25BAM076
+    </div>
+    <div class="footer-sub">
+      Department of Computer Science &amp; Engineering | Nirma University
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="logic.js"></script>
+  <script src="planner.js"></script>
+</body>
+</html>
