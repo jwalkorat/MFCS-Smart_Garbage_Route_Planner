@@ -106,4 +106,5 @@ const PRESETS = [
 // Node.js export for tests
 if (typeof module !== "undefined" && module.exports) {
   module.exports = PRESETS;
+  module.exports.PRESETS = PRESETS;
 }
