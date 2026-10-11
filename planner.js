@@ -694,6 +694,8 @@
       if (gridRect) gridRect.style.display = "block";
       if (btnPan) btnPan.style.display = "none";
       if (btnAddJunction) btnAddJunction.classList.add("active");
+      const mapStyleSelect = document.getElementById("map-style");
+      if (mapStyleSelect) mapStyleSelect.value = "grid";
       state.activeTool = "add-junction";
       if (mapSvg) mapSvg.classList.remove("pan-mode");
       updateToolTips();
@@ -808,7 +810,7 @@
   }
 
   /**
-   * Sets up toolbar buttons and tool selection.
+   * Sets up toolbar buttons, place search, and map style toggle.
    */
   function setupToolbar() {
     const toolBtns = document.querySelectorAll(".tool-btn[data-tool]");
@@ -852,6 +854,85 @@
         const idx = parseInt(examplesDropdown.value, 10);
         if (!isNaN(idx) && PRESETS[idx]) {
           loadPreset(PRESETS[idx]);
+        }
+      });
+    }
+
+    // Place Search via OpenStreetMap Nominatim
+    const placeSearchInput = document.getElementById("place-search");
+    const placeSearchBtn = document.getElementById("place-search-btn");
+
+    async function runPlaceSearch() {
+      if (!placeSearchInput || !placeSearchBtn) return;
+      const query = placeSearchInput.value.trim();
+      if (!query) return;
+
+      if (!leafletMap) {
+        showToast("Search needs an internet connection.");
+        return;
+      }
+
+      placeSearchBtn.disabled = true;
+      try {
+        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+        const response = await fetch(url, {
+          headers: { "Accept": "application/json" }
+        });
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        const results = await response.json();
+        if (!Array.isArray(results) || results.length === 0) {
+          showToast("Place not found.");
+        } else {
+          const lat = parseFloat(results[0].lat);
+          const lon = parseFloat(results[0].lon);
+          if (!isNaN(lat) && !isNaN(lon)) {
+            leafletMap.setView([lat, lon], 17);
+          } else {
+            showToast("Place not found.");
+          }
+        }
+      } catch (err) {
+        showToast("Search needs an internet connection.");
+      } finally {
+        placeSearchBtn.disabled = false;
+      }
+    }
+
+    if (placeSearchBtn) {
+      placeSearchBtn.addEventListener("click", runPlaceSearch);
+    }
+    if (placeSearchInput) {
+      placeSearchInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          runPlaceSearch();
+        }
+      });
+    }
+
+    // Map Style Select ("Street map" vs "Plain grid")
+    const mapStyleSelect = document.getElementById("map-style");
+    if (mapStyleSelect) {
+      mapStyleSelect.addEventListener("change", () => {
+        const mode = mapStyleSelect.value;
+        if (mode === "grid") {
+          if (leafletMap && tileLayer && leafletMap.hasLayer(tileLayer)) {
+            leafletMap.removeLayer(tileLayer);
+          }
+          if (gridRect) gridRect.style.display = "block";
+        } else {
+          if (!leafletMap || !tileLayer) {
+            showToast("Street map unavailable offline. Using the plain grid.");
+            mapStyleSelect.value = "grid";
+            if (gridRect) gridRect.style.display = "block";
+            return;
+          }
+          if (!leafletMap.hasLayer(tileLayer)) {
+            tileLayer.addTo(leafletMap);
+          }
+          if (gridRect) gridRect.style.display = "none";
         }
       });
     }

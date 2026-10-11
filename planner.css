@@ -108,6 +108,58 @@
   border-color: var(--teal);
 }
 
+.toolbar-subrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+
+.place-search-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.place-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-main);
+}
+
+.place-search-input:focus {
+  outline: 2px solid var(--teal);
+  border-color: var(--teal);
+}
+
+.place-search-btn {
+  padding: 0.45rem 0.9rem;
+  font-weight: 600;
+}
+
+.place-search-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.map-style-group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
 .tool-tip {
   font-size: 0.8rem;
   color: var(--text-muted);

@@ -67,6 +67,30 @@
             </div>
           </div>
 
+          <!-- Secondary Toolbar Row: Place Search & Map Style Toggle -->
+          <div class="toolbar-subrow">
+            <div class="place-search-group">
+              <input
+                id="place-search"
+                type="text"
+                class="place-search-input"
+                placeholder="Search a place, e.g. Nirma University"
+                aria-label="Search a place on the map"
+              />
+              <button id="place-search-btn" type="button" class="tool-btn place-search-btn" aria-label="Search place">
+                Go
+              </button>
+            </div>
+
+            <div class="map-style-group">
+              <label for="map-style" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Map style:</label>
+              <select id="map-style" class="examples-select" aria-label="Map style">
+                <option value="street" selected>Street map</option>
+                <option value="grid">Plain grid</option>
+              </select>
+            </div>
+          </div>
+
           <div id="tool-tip-text" class="tool-tip">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
             <span>Pan and zoom the street map to your area, then choose Add junction.</span>

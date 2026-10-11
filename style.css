@@ -315,6 +315,170 @@ a {
   }
 }
 
+/* ==========================================================================
+   Landing Page Sections & Grids
+   ========================================================================== */
+
+.landing-main {
+  padding-top: var(--space-7);
+  padding-bottom: var(--space-8);
+}
+
+.landing-section {
+  margin-bottom: var(--space-7);
+}
+
+.section-heading {
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--teal);
+  margin-bottom: var(--space-4);
+}
+
+.hero-section {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: var(--space-6);
+  align-items: center;
+  margin-bottom: var(--space-7);
+}
+
+.hero-title {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: var(--space-3);
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-size: var(--font-size-lg);
+  color: var(--muted);
+  margin-bottom: var(--space-5);
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.card-text {
+  color: var(--muted);
+  font-size: var(--font-size-base);
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-5);
+}
+
+.uses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--space-4);
+}
+
+.model-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: var(--space-5);
+  align-items: center;
+}
+
+.model-list {
+  list-style: disc;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  color: var(--text);
+}
+
+.math-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  padding: var(--space-3);
+  margin: var(--space-3) 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.euler-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.euler-table th,
+.euler-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.euler-table th {
+  background: var(--bg);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.euler-row-green {
+  background: rgba(220, 252, 231, 0.35);
+}
+
+.euler-row-blue {
+  background: rgba(219, 234, 254, 0.35);
+}
+
+.euler-row-orange {
+  background: rgba(255, 237, 213, 0.35);
+}
+
+.step-strip-card {
+  position: relative;
+}
+
+.step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-3);
+}
+
+@media (max-width: 900px) {
+  .hero-section,
+  .grid-3,
+  .grid-2,
+  .model-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .navbar {
+    padding: var(--space-3) var(--space-4);
+  }
+  .container {
+    padding: 0 var(--space-4);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RouteWise - Smart Garbage Collection Route Planner</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,60 +23,306 @@
     </nav>
   </header>
 
-  <!-- Hero / Call to Action -->
-  <main class="container" style="padding-top: var(--space-10); padding-bottom: var(--space-10);">
-    <div style="text-align: center; margin-bottom: var(--space-10);">
-      <h1 style="font-size: var(--font-size-3xl); margin-bottom: var(--space-3); color: var(--text-primary);">
-        Smart Garbage Collection Route Planner
-      </h1>
-      <p style="font-size: var(--font-size-lg); color: var(--text-secondary); max-width: 680px; margin: 0 auto var(--space-6);">
-        Optimizing urban waste collection using Graph Theory, Euler Circuits, and the Chinese Postman Problem.
-      </p>
-      <a href="planner.html" class="btn btn-primary" style="font-size: var(--font-size-base); padding: 0.75rem 1.75rem;">
-        Open Planner &rarr;
-      </a>
-    </div>
+  <main class="container landing-main">
 
-    <!-- Section: Problem -->
-    <section id="problem" class="card" style="margin-bottom: var(--space-6);">
-      <h2 class="card-title">Problem</h2>
-      <!-- To be completed in subsequent commits -->
+    <!-- 1. Hero Section -->
+    <section class="hero-section">
+      <div class="hero-copy">
+        <span class="badge badge-even" style="margin-bottom: var(--space-3);">Graph Theory Application</span>
+        <h1 class="hero-title">RouteWise</h1>
+        <p class="hero-subtitle">
+          Smart garbage collection route planning using Euler circuits and the Chinese Postman Problem.
+        </p>
+        <div class="hero-actions">
+          <a href="planner.html" class="btn btn-primary">Open Planner &rarr;</a>
+          <a href="#maths" class="btn btn-ghost">See the maths</a>
+        </div>
+      </div>
+
+      <div class="hero-diagram card">
+        <svg viewBox="0 0 360 230" width="100%" height="auto" aria-label="Sample street graph with highlighted route">
+          <!-- Streets -->
+          <line x1="65" y1="55" x2="295" y2="55" stroke="#2563EB" stroke-width="5" stroke-linecap="round"/>
+          <line x1="65" y1="55" x2="295" y2="175" stroke="#2563EB" stroke-width="4" stroke-linecap="round"/>
+          <line x1="65" y1="55" x2="65" y2="175" stroke="#2563EB" stroke-width="4" stroke-linecap="round"/>
+          <line x1="295" y1="55" x2="295" y2="175" stroke="#2563EB" stroke-width="4" stroke-linecap="round"/>
+          <line x1="295" y1="55" x2="65" y2="175" stroke="#2563EB" stroke-width="4" stroke-linecap="round"/>
+          <line x1="65" y1="175" x2="295" y2="175" stroke="#2563EB" stroke-width="5" stroke-linecap="round"/>
+
+          <!-- Repeated dashed paths (AB and CD) -->
+          <line x1="65" y1="45" x2="295" y2="45" stroke="#EA580C" stroke-width="3.5" stroke-dasharray="6 5" stroke-linecap="round"/>
+          <line x1="65" y1="185" x2="295" y2="185" stroke="#EA580C" stroke-width="3.5" stroke-dasharray="6 5" stroke-linecap="round"/>
+
+          <!-- Junctions -->
+          <g transform="translate(65,55)">
+            <circle r="18" fill="#EA580C" stroke="#FFFFFF" stroke-width="2.5"/>
+            <text fill="#FFFFFF" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="central">A</text>
+          </g>
+          <g transform="translate(295,55)">
+            <circle r="18" fill="#EA580C" stroke="#FFFFFF" stroke-width="2.5"/>
+            <text fill="#FFFFFF" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="central">B</text>
+          </g>
+          <g transform="translate(295,175)">
+            <circle r="18" fill="#EA580C" stroke="#FFFFFF" stroke-width="2.5"/>
+            <text fill="#FFFFFF" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="central">C</text>
+          </g>
+          <g transform="translate(65,175)">
+            <circle r="18" fill="#EA580C" stroke="#FFFFFF" stroke-width="2.5"/>
+            <text fill="#FFFFFF" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="central">D</text>
+          </g>
+        </svg>
+      </div>
     </section>
 
-    <!-- Section: Model -->
-    <section id="model" class="card" style="margin-bottom: var(--space-6);">
-      <h2 class="card-title">Model</h2>
-      <!-- To be completed in subsequent commits -->
+    <!-- 2. The Problem -->
+    <section id="problem" class="landing-section">
+      <h2 class="section-heading">The problem</h2>
+      <div class="grid-3">
+        <div class="card">
+          <h3 class="card-title">The problem</h3>
+          <p class="card-text">
+            A garbage truck must pass through every street of a colony. Driving the same street twice wastes fuel, time and money.
+          </p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Why it matters</h3>
+          <p class="card-text">
+            Cities spend a large share of their waste budget on collection routes. Fewer repeated streets means lower cost and lower emissions.
+          </p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Our approach</h3>
+          <p class="card-text">
+            We model the colony as a graph and use discrete maths to find a route that repeats as few streets as possible.
+          </p>
+        </div>
+      </div>
     </section>
 
-    <!-- Section: The Maths -->
-    <section id="maths" class="card" style="margin-bottom: var(--space-6);">
-      <h2 class="card-title">The Maths</h2>
-      <!-- To be completed in subsequent commits -->
+    <!-- 3. How We Model It -->
+    <section id="model" class="landing-section">
+      <h2 class="section-heading">How we model it</h2>
+      <div class="card model-grid">
+        <div>
+          <ul class="model-list">
+            <li><strong>Junction</strong> = vertex ($v \in V$)</li>
+            <li><strong>Street</strong> = edge ($e \in E$)</li>
+            <li><strong>Length</strong> = weight ($w(e)$ in metres)</li>
+            <li><strong>Number of streets at a junction</strong> = degree ($\deg(v)$)</li>
+          </ul>
+        </div>
+        <div class="model-diagram">
+          <svg viewBox="0 0 420 150" width="100%" height="auto" aria-label="Labelled graph model diagram">
+            <line x1="80" y1="80" x2="230" y2="80" stroke="#475569" stroke-width="4"/>
+            <line x1="230" y1="80" x2="350" y2="40" stroke="#475569" stroke-width="4"/>
+            <line x1="230" y1="80" x2="350" y2="120" stroke="#475569" stroke-width="4"/>
+
+            <rect x="125" y="64" width="60" height="22" rx="4" fill="#FFFFFF" stroke="#CBD5E1"/>
+            <text x="155" y="75" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle" dominant-baseline="central">120 m</text>
+            <text x="155" y="102" font-size="11" fill="#64748B" text-anchor="middle">Street = Edge (Weight)</text>
+
+            <circle cx="80" cy="80" r="18" fill="#EA580C"/>
+            <text x="80" y="80" fill="#FFFFFF" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="central">A</text>
+            <text x="80" y="38" font-size="11" fill="#0F172A" font-weight="600" text-anchor="middle">Junction = Vertex</text>
+
+            <circle cx="230" cy="80" r="18" fill="#EA580C"/>
+            <text x="230" y="80" fill="#FFFFFF" font-size="13" font-weight="700" text-anchor="middle" dominant-baseline="central">B</text>
+            <text x="230" y="122" font-size="11" fill="#EA580C" font-weight="600" text-anchor="middle">deg(B) = 3 (Odd)</text>
+
+            <circle cx="350" cy="40" r="16" fill="#0F766E"/>
+            <text x="350" y="40" fill="#FFFFFF" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="central">C</text>
+
+            <circle cx="350" cy="120" r="16" fill="#0F766E"/>
+            <text x="350" y="120" fill="#FFFFFF" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="central">D</text>
+          </svg>
+        </div>
+      </div>
     </section>
 
-    <!-- Section: Worked Example -->
-    <section id="example" class="card" style="margin-bottom: var(--space-6);">
-      <h2 class="card-title">Worked Example</h2>
-      <!-- To be completed in subsequent commits -->
+    <!-- 4. The Maths -->
+    <section id="maths" class="landing-section">
+      <h2 class="section-heading">The maths</h2>
+      <div class="grid-2" style="margin-bottom: var(--space-5);">
+        <div class="card">
+          <h3 class="card-title">Handshaking theorem</h3>
+          <div class="math-block" data-tex="\sum_{v \in V} \deg(v) = 2\,|E|">
+            ∑ deg(v) = 2 |E|
+          </div>
+          <p class="card-text">
+            Every street is counted at both of its ends. So the number of odd junctions is always even.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Chinese Postman cost</h3>
+          <div class="math-block" data-tex="\text{Total} = \sum_{e \in E} w(e) + \min_{M} \sum_{(u,v) \in M} d(u,v)">
+            Total = ∑ w(e) + min ∑ d(u,v)
+          </div>
+          <p class="card-text">
+            M is a way of pairing up the odd junctions, and d(u,v) is the shortest distance between them.
+          </p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: var(--space-5);">
+        <h3 class="card-title">Euler's theorem (for a connected graph)</h3>
+        <div class="degree-table-wrapper" style="margin-bottom: var(--space-4);">
+          <table class="euler-table">
+            <thead>
+              <tr>
+                <th>Odd-degree junctions</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="euler-row-green">
+                <td><span class="badge badge-even">0 odd</span></td>
+                <td><strong>Euler circuit exists</strong> — start and end at the same junction, covering every street exactly once.</td>
+              </tr>
+              <tr class="euler-row-blue">
+                <td><span class="badge" style="background: var(--blue-light); color: var(--blue);">2 odd</span></td>
+                <td><strong>Euler path exists</strong> — must start at one odd junction and finish at the other.</td>
+              </tr>
+              <tr class="euler-row-orange">
+                <td><span class="badge badge-odd">4 or more odd</span></td>
+                <td><strong>No route without repeating streets</strong> — solved using the Chinese Postman pairing.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="card-text">
+          <strong>Why:</strong> each time we pass through a junction we use one street to enter and one to leave, which uses 2 streets. So every junction we only pass through needs even degree. Only the start and end can be odd.
+        </p>
+      </div>
+
+      <div class="banner banner-blue" style="margin-bottom: 0;">
+        <strong>Did you know?</strong> A map can never have exactly one odd junction. The handshaking theorem forbids it.
+      </div>
     </section>
 
-    <!-- Section: Real-World Uses -->
-    <section id="applications" class="card" style="margin-bottom: var(--space-6);">
-      <h2 class="card-title">Real-World Uses</h2>
-      <!-- To be completed in subsequent commits -->
+    <!-- 5. How the Planner Works -->
+    <section class="landing-section">
+      <h2 class="section-heading">How the planner works</h2>
+      <div class="grid-3">
+        <div class="card step-strip-card">
+          <span class="step-number">1</span>
+          <h3 class="card-title">Draw the map.</h3>
+          <p class="card-text">Pan to your colony on the real street map, place junctions, and connect them with streets.</p>
+        </div>
+        <div class="card step-strip-card">
+          <span class="step-number">2</span>
+          <h3 class="card-title">Check the degrees.</h3>
+          <p class="card-text">See every junction's degree, the handshaking check, and the instant Euler verdict.</p>
+        </div>
+        <div class="card step-strip-card">
+          <span class="step-number">3</span>
+          <h3 class="card-title">Get the route.</h3>
+          <p class="card-text">Compare odd-junction pairings, find the shortest tour, and animate the truck step by step.</p>
+        </div>
+      </div>
     </section>
+
+    <!-- 6. Worked Example -->
+    <section id="example" class="landing-section">
+      <h2 class="section-heading">Worked example</h2>
+      <div class="card model-grid">
+        <div>
+          <h3 class="card-title">Map 1: 4-junction practice colony</h3>
+          <p class="card-text" style="margin-bottom: var(--space-3);">
+            Streets: AB = 2, AC = 3, AD = 4, BC = 6, BD = 5, CD = 1 (original length = 21).
+          </p>
+          <p class="card-text">
+            All four junctions are odd. Pairings: AB + CD = 3, AC + BD = 8, AD + BC = 9. Cheapest = 3. Total = 21 + 3 = 24.
+          </p>
+        </div>
+        <div>
+          <svg viewBox="0 0 340 210" width="100%" height="auto" aria-label="Practice Map 1 diagram">
+            <line x1="60" y1="45" x2="280" y2="45" stroke="#475569" stroke-width="3.5"/>
+            <line x1="60" y1="45" x2="280" y2="165" stroke="#475569" stroke-width="3.5"/>
+            <line x1="60" y1="45" x2="60" y2="165" stroke="#475569" stroke-width="3.5"/>
+            <line x1="280" y1="45" x2="280" y2="165" stroke="#475569" stroke-width="3.5"/>
+            <line x1="280" y1="45" x2="60" y2="165" stroke="#475569" stroke-width="3.5"/>
+            <line x1="60" y1="165" x2="280" y2="165" stroke="#475569" stroke-width="3.5"/>
+
+            <!-- Labels -->
+            <text x="170" y="33" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">AB = 2 (repeat)</text>
+            <text x="170" y="185" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">CD = 1 (repeat)</text>
+            <text x="38" y="105" font-size="11" font-weight="600" fill="#475569" text-anchor="middle">4</text>
+            <text x="302" y="105" font-size="11" font-weight="600" fill="#475569" text-anchor="middle">6</text>
+            <text x="145" y="88" font-size="11" font-weight="600" fill="#475569">AC=3</text>
+            <text x="195" y="128" font-size="11" font-weight="600" fill="#475569">BD=5</text>
+
+            <circle cx="60" cy="45" r="16" fill="#EA580C"/><text x="60" y="45" fill="#FFF" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="central">A</text>
+            <circle cx="280" cy="45" r="16" fill="#EA580C"/><text x="280" y="45" fill="#FFF" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="central">B</text>
+            <circle cx="280" cy="165" r="16" fill="#EA580C"/><text x="280" y="165" fill="#FFF" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="central">C</text>
+            <circle cx="60" cy="165" r="16" fill="#EA580C"/><text x="60" y="165" fill="#FFF" font-size="12" font-weight="700" text-anchor="middle" dominant-baseline="central">D</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Real-World Uses -->
+    <section id="applications" class="landing-section">
+      <h2 class="section-heading">Real-world uses</h2>
+      <div class="uses-grid">
+        <div class="card">
+          <h3 class="card-title">Garbage trucks</h3>
+          <p class="card-text">Collecting household waste along every municipal street while minimizing fuel use.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Postal delivery</h3>
+          <p class="card-text">Planning mail carrier walks that service every block and return to the post office.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Snow ploughs</h3>
+          <p class="card-text">Clearing snow from every neighbourhood road after a storm with minimal deadheading.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Street sweeping</h3>
+          <p class="card-text">Scheduling mechanical sweepers to clean every curb across residential sectors.</p>
+        </div>
+        <div class="card">
+          <h3 class="card-title">Meter reading</h3>
+          <p class="card-text">Routing utility inspectors along every street segment to read water or gas meters.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Limits and Assumptions -->
+    <section id="limits" class="landing-section">
+      <div class="card">
+        <h2 class="card-title">Limits and assumptions</h2>
+        <p class="card-text">
+          Lengths are straight-line distances measured on the map with the haversine formula, unless you type your own. Streets are two-way. The pairing step tries every pairing, so the planner supports up to 12 odd junctions.
+        </p>
+      </div>
+    </section>
+
   </main>
 
   <!-- Shared Footer -->
   <footer class="footer">
     <div class="footer-meta">
-      Mathematical Foundations for Computer Science (2CS802CC26) | Team 25BAM053, 25BAM076
+      Mathematical Foundations for Computer Science (2CS802CC26) | Team 25BAM053, 25BAM076 | Nirma University
     </div>
     <div class="footer-sub">
-      Department of Computer Science &amp; Engineering | Nirma University
+      Department of Computer Science &amp; Engineering
     </div>
   </footer>
 
+  <!-- KaTeX rendering script (pinned 0.16.11) -->
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      if (typeof katex !== "undefined") {
+        document.querySelectorAll(".math-block[data-tex]").forEach(function (el) {
+          katex.render(el.getAttribute("data-tex"), el, {
+            displayMode: true,
+            throwOnError: false
+          });
+        });
+      }
+    });
+  </script>
 </body>
 </html>

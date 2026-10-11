@@ -282,6 +282,26 @@ function verifyRouteProperties(graph, result, expectedType, expectedTotal) {
   assert.strictEqual(largeRes.ok, false);
   assert.strictEqual(largeRes.error, "Too many odd junctions (max 12)");
 
+  // 9. Junctions carrying optional lat and lng fields (ignored by logic.js)
+  const map1Geo = JSON.parse(JSON.stringify(PRESETS[0].graph));
+  const sampleCoords = [
+    { lat: 23.1288, lng: 72.5419 },
+    { lat: 23.1295, lng: 72.5445 },
+    { lat: 23.1270, lng: 72.5448 },
+    { lat: 23.1268, lng: 72.5418 }
+  ];
+  map1Geo.junctions.forEach((j, idx) => {
+    j.lat = sampleCoords[idx].lat;
+    j.lng = sampleCoords[idx].lng;
+  });
+
+  assert.deepStrictEqual(logic.getDegrees(map1Geo), logic.getDegrees(PRESETS[0].graph), "Degrees must be identical with lat/lng");
+  assert.deepStrictEqual(logic.getVerdict(map1Geo), logic.getVerdict(PRESETS[0].graph), "Verdict must be identical with lat/lng");
+  const geoPostman = logic.solvePostman(map1Geo, "A");
+  assert.strictEqual(geoPostman.ok, true);
+  assert.strictEqual(geoPostman.totalDistance, 24, "Map 1 with lat/lng must still give total 24");
+
+  console.log("PASS: Map 1 with lat/lng fields gives total 24, identical degrees and verdict");
   console.log("PASS: All error and edge cases verified");
 }
 
