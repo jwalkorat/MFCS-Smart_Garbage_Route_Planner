@@ -217,6 +217,7 @@
   display: block;
   user-select: none;
   cursor: crosshair;
+  will-change: transform;
 }
 
 #map-svg.pan-mode {
@@ -239,7 +240,6 @@
 /* Junctions */
 .junction-node {
   cursor: pointer;
-  transition: transform 0.15s ease;
 }
 
 .junction-node circle {

@@ -38,12 +38,7 @@ Plans an optimal route that covers every street of a colony using **Euler circui
 
 ## 3. How to Run Locally
 
-No build step or installation is required:
-1. Open `index.html` or `planner.html` directly in any modern browser, **or**
-2. Serve the folder with any static server:
-   ```bash
-   npx serve .
-   ```
+The street map needs http(s). Run `npx serve .` and open http://localhost:3000, or use the live Vercel link. Opening the HTML file directly from disk can show a blocked or missing map.
 
 ## 4. How to Run the Tests
 

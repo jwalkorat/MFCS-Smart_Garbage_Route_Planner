@@ -97,6 +97,51 @@
   }
 
   /**
+   * Updates only the position attributes of existing SVG elements (junctions, streets, labels)
+   * without rebuilding the DOM on every pan/zoom frame.
+   */
+  function updateOverlayPositions() {
+    if (!streetLayer || !junctionLayer) return;
+    const jMap = new Map(state.graph.junctions.map(j => [j.id, j]));
+
+    // Update junction group transforms
+    const junctionNodes = junctionLayer.querySelectorAll(".junction-node[data-junction-id]");
+    junctionNodes.forEach((group) => {
+      const j = jMap.get(group.getAttribute("data-junction-id"));
+      if (j) {
+        group.setAttribute("transform", `translate(${j.x}, ${j.y})`);
+      }
+    });
+
+    // Update street lines, halos, and midpoint labels
+    const sMap = new Map(state.graph.streets.map(s => [String(s.id), s]));
+    const streetLines = streetLayer.querySelectorAll("line[data-street-id]");
+    streetLines.forEach((line) => {
+      const street = sMap.get(line.getAttribute("data-street-id"));
+      if (!street) return;
+      const fromJ = jMap.get(street.from);
+      const toJ = jMap.get(street.to);
+      if (!fromJ || !toJ) return;
+      line.setAttribute("x1", fromJ.x);
+      line.setAttribute("y1", fromJ.y);
+      line.setAttribute("x2", toJ.x);
+      line.setAttribute("y2", toJ.y);
+    });
+
+    const labelGroups = streetLayer.querySelectorAll(".street-label-group[data-street-id]");
+    labelGroups.forEach((labelGroup) => {
+      const street = sMap.get(labelGroup.getAttribute("data-street-id"));
+      if (!street) return;
+      const fromJ = jMap.get(street.from);
+      const toJ = jMap.get(street.to);
+      if (!fromJ || !toJ) return;
+      const midX = (fromJ.x + toJ.x) / 2;
+      const midY = (fromJ.y + toJ.y) / 2;
+      labelGroup.setAttribute("transform", `translate(${midX}, ${midY})`);
+    });
+  }
+
+  /**
    * Updates SVG (x, y) positions of all junctions that have (lat, lng) so the overlay stays locked to the street map.
    */
   function syncJunctionsToMap() {
@@ -112,7 +157,7 @@
       }
     });
 
-    renderMap();
+    updateOverlayPositions();
   }
 
   /**
@@ -376,6 +421,7 @@
       halo.setAttribute("x2", toJ.x);
       halo.setAttribute("y2", toJ.y);
       halo.setAttribute("class", "street-line-halo");
+      halo.setAttribute("data-street-id", street.id);
       streetLayer.appendChild(halo);
 
       const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
@@ -406,6 +452,7 @@
 
       const labelGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
       labelGroup.setAttribute("class", "street-label-group");
+      labelGroup.setAttribute("data-street-id", street.id);
       labelGroup.setAttribute("transform", `translate(${midX}, ${midY})`);
 
       const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -709,12 +756,21 @@
     leafletMap = L.map("real-map", {
       center: [23.0225, 72.5714], // Ahmedabad
       zoom: 16,
-      doubleClickZoom: false
+      doubleClickZoom: false,
+      zoomAnimation: true,
+      zoomSnap: 0.5,
+      zoomDelta: 0.5,
+      wheelPxPerZoomLevel: 120,
+      wheelDebounceTime: 40,
+      inertia: true
     });
 
-    tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    tileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+      subdomains: "abcd",
+      maxZoom: 20,
+      updateWhenZooming: false,
+      keepBuffer: 4,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     }).addTo(leafletMap);
 
     tileLayer.on("tileerror", () => {
@@ -732,10 +788,36 @@
       notifyListenersOnly();
     });
 
+    let isZoomAnimating = false;
+
+    // Keep SVG overlay in step with Leaflet's CSS zoom animation
+    leafletMap.on("zoomanim", (e) => {
+      if (!mapSvg) return;
+      isZoomAnimating = true;
+      if (syncRafId !== null) {
+        cancelAnimationFrame(syncRafId);
+        syncRafId = null;
+      }
+      const s = leafletMap.getZoomScale(e.zoom, leafletMap.getZoom());
+      const c0 = leafletMap.latLngToContainerPoint(e.center);
+      const { width, height } = getStageDimensions();
+      const c1 = { x: width / 2, y: height / 2 };
+      const tx = c1.x - s * c0.x;
+      const ty = c1.y - s * c0.y;
+      mapSvg.style.transformOrigin = "0 0";
+      mapSvg.style.transition = "transform 250ms cubic-bezier(0, 0, 0.25, 1)";
+      mapSvg.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+    });
+
     // Keep SVG junctions synced during and after pan/zoom
-    leafletMap.on("move", scheduleSync);
-    leafletMap.on("zoom", scheduleSync);
+    leafletMap.on("move", () => {
+      if (!isZoomAnimating) scheduleSync();
+    });
+    leafletMap.on("zoom", () => {
+      if (!isZoomAnimating) scheduleSync();
+    });
     leafletMap.on("moveend", () => {
+      if (isZoomAnimating) return;
       if (syncRafId !== null) {
         cancelAnimationFrame(syncRafId);
         syncRafId = null;
@@ -743,9 +825,15 @@
       syncJunctionsToMap();
     });
     leafletMap.on("zoomend", () => {
+      isZoomAnimating = false;
       if (syncRafId !== null) {
         cancelAnimationFrame(syncRafId);
         syncRafId = null;
+      }
+      if (mapSvg) {
+        mapSvg.style.transition = "";
+        mapSvg.style.transform = "";
+        mapSvg.style.transformOrigin = "";
       }
       syncJunctionsToMap();
     });
@@ -792,7 +880,7 @@
         const coords = getSvgCoordinates(e);
         state.draggingJunction.x = Math.max(25, Math.min(875, coords.x + state.dragOffset.x));
         state.draggingJunction.y = Math.max(25, Math.min(575, coords.y + state.dragOffset.y));
-        renderMap();
+        updateOverlayPositions();
       }
     });
 
