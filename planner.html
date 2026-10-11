@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RouteWise - Interactive Route Planner</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="planner.css">
 </head>
@@ -32,11 +31,7 @@
         <!-- Toolbar -->
         <div class="toolbar-card">
           <div class="toolbar-actions" role="toolbar" aria-label="Map drawing tools">
-            <button id="tool-pan" class="tool-btn active" data-tool="pan" aria-label="Pan map" title="Pan and zoom the street map">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
-              <span>Pan map</span>
-            </button>
-            <button id="tool-add-junction" class="tool-btn" data-tool="add-junction" aria-label="Add junction" title="Add Junction (Click canvas)">
+            <button id="tool-add-junction" class="tool-btn active" data-tool="add-junction" aria-label="Add junction" title="Add Junction (Click canvas)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
               <span>Add junction</span>
             </button>
@@ -67,74 +62,47 @@
             </div>
           </div>
 
-          <!-- Secondary Toolbar Row: Place Search & Map Style Toggle -->
-          <div class="toolbar-subrow">
-            <div class="place-search-group">
-              <input
-                id="place-search"
-                type="text"
-                class="place-search-input"
-                placeholder="Search a place, e.g. Nirma University"
-                aria-label="Search a place on the map"
-              />
-              <button id="place-search-btn" type="button" class="tool-btn place-search-btn" aria-label="Search place">
-                Go
-              </button>
-            </div>
-
-            <div class="map-style-group">
-              <label for="map-style" style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">Map style:</label>
-              <select id="map-style" class="examples-select" aria-label="Map style">
-                <option value="street" selected>Street map</option>
-                <option value="grid">Plain grid</option>
-              </select>
-            </div>
-          </div>
-
           <div id="tool-tip-text" class="tool-tip">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span>Pan and zoom the street map to your area, then choose Add junction.</span>
+            <span>Click empty space on the grid to place a junction.</span>
           </div>
         </div>
 
         <!-- Map Card -->
         <div class="map-card">
-          <div class="map-stage" id="map-stage">
-            <div id="real-map"></div>
-            <svg id="map-svg" class="pan-mode" viewBox="0 0 900 600" preserveAspectRatio="none">
-              <defs>
-                <pattern id="grid-dots" width="30" height="30" patternUnits="userSpaceOnUse">
-                  <circle cx="15" cy="15" r="1.5" fill="#CBD5E1"/>
-                </pattern>
-              </defs>
-              <rect id="grid-rect" width="900" height="600" fill="url(#grid-dots)"/>
-              <g id="street-layer"></g>
-              <g id="route-layer"></g>
-              <g id="junction-layer"></g>
-            </svg>
+          <svg id="map-svg" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <pattern id="grid-dots" width="30" height="30" patternUnits="userSpaceOnUse">
+                <circle cx="15" cy="15" r="1.5" fill="#CBD5E1"/>
+              </pattern>
+            </defs>
+            <rect id="grid-rect" width="900" height="600" fill="url(#grid-dots)"/>
+            <g id="street-layer"></g>
+            <g id="route-layer"></g>
+            <g id="junction-layer"></g>
+          </svg>
 
-            <!-- Legend -->
-            <div class="map-legend" aria-hidden="true">
-              <div class="legend-item">
-                <span class="legend-dot odd"></span>
-                <span>Odd junction (glow)</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-dot even"></span>
-                <span>Even junction</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-line"></span>
-                <span>Street</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-line route"></span>
-                <span>Route</span>
-              </div>
-              <div class="legend-item">
-                <span class="legend-line repeat"></span>
-                <span>Repeated street</span>
-              </div>
+          <!-- Legend -->
+          <div class="map-legend" aria-hidden="true">
+            <div class="legend-item">
+              <span class="legend-dot odd"></span>
+              <span>Odd junction (glow)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot even"></span>
+              <span>Even junction</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line"></span>
+              <span>Street</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line route"></span>
+              <span>Route</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line repeat"></span>
+              <span>Repeated street</span>
             </div>
           </div>
         </div>
@@ -176,7 +144,6 @@
   <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="presets.js"></script>
   <script src="logic.js"></script>
   <script src="planner.js"></script>

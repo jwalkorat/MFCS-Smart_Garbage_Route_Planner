@@ -1,6 +1,6 @@
 # RouteWise: Smart Garbage Collection Route Planner
 
-Plans an optimal route that covers every street of a colony using **Euler circuits** and the **Chinese Postman Problem (CPP)**, with interactive drawing over a real street map (OpenStreetMap + Leaflet) and full step-by-step mathematical working.
+Plans an optimal route that covers every street of a colony using **Euler circuits** and the **Chinese Postman Problem (CPP)**, with interactive drawing on a plain grid and full step-by-step mathematical working.
 
 **Course:** Mathematical Foundations for Computer Science (`2CS802CC26`), Nirma University<br>
 **Team:** 25BAM053, 25BAM076<br>
@@ -27,20 +27,11 @@ Plans an optimal route that covers every street of a colony using **Euler circui
 
 ---
 
-## 2. Real Map Integration
+## 2. How to Run Locally
 
-- **Street Map Underlay:** Uses **Leaflet 1.9.4** and **CARTO Voyager** basemap tiles (`© OpenStreetMap contributors © CARTO`) with a free domain-restricted key (attribution must stay visible), centered on Ahmedabad by default, with a synchronized SVG graph overlay.
-- **Place Search:** Uses **OpenStreetMap Nominatim** (`https://nominatim.openstreetmap.org/search`) for lightweight place lookup (e.g., *"Nirma University"*).
-- **Offline & Plain Grid Fallback:** An internet connection is needed for map tiles and place search. Users can switch between **Street map** and **Plain grid** at any time, and the plain dotted grid works completely offline.
-- **Haversine Street Lengths:** When drawing a street between two junctions on the map, the default length is the straight-line spherical distance in metres calculated with the **haversine formula** ($R = 6{,}371{,}000\text{ m}$), not curved road distance. Users can accept or type a custom length.
+Open `index.html` in a browser, or run `npx serve .` in the repository root.
 
----
-
-## 3. How to Run Locally
-
-The street map needs http(s). Run `npx serve .` and open http://localhost:3000, or use the live Vercel link. Opening the HTML file directly from disk can show a blocked or missing map.
-
-## 4. How to Run the Tests
+## 3. How to Run the Tests
 
 Run the automated test suite with Node.js (uses only the built-in `assert` module):
 ```bash
@@ -49,7 +40,7 @@ node tests/logic.test.js
 
 ---
 
-## 5. Sample Input and Output (Practice Map)
+## 4. Sample Input and Output (Practice Map)
 
 - **Junctions:** `A`, `B`, `C`, `D`
 - **Streets:** `AB = 2`, `AC = 3`, `AD = 4`, `BC = 6`, `BD = 5`, `CD = 1` (Original street length = `21 m`)
@@ -63,27 +54,27 @@ node tests/logic.test.js
 
 ---
 
-## 6. Screenshots
+## 5. Screenshots
 
 - `[Screenshot Placeholder 1: Landing Page (index.html) – Problem, Model & KaTeX Maths]`
-- `[Screenshot Placeholder 2: Interactive Planner (planner.html) – Real Street Map (OpenStreetMap) with Synced Colony Graph & Route]`
-- `[Screenshot Placeholder 3: Interactive Planner (planner.html) – Plain Grid Mode, Chinese Postman Pairing Table & Step Animation]`
+- `[Screenshot Placeholder 2: Interactive Planner (planner.html) – Colony Graph, Euler Verdict & Degrees Table]`
+- `[Screenshot Placeholder 3: Interactive Planner (planner.html) – Chinese Postman Pairing Table & Step Animation]`
 
 ---
 
-## 7. Folder Structure
+## 6. Folder Structure
 
 ```text
 MFCS-Smart_Garbage_Route_Planner/
 ├── README.md           # Project overview, maths summary, and instructions
 ├── CONTRACT.md         # Shared graph data schema and function specifications
 ├── index.html          # Landing page (problem, model, KaTeX maths, worked example)
-├── planner.html        # Interactive planner page (Leaflet real map + SVG overlay)
+├── planner.html        # Interactive planner page (SVG dotted-grid canvas + analysis panels)
 ├── style.css           # Shared design system tokens and landing page styles
-├── planner.css         # Planner toolbar, map stage, overlay, and panel styles
+├── planner.css         # Planner toolbar, SVG canvas, and panel styles
 ├── logic.js            # Pure discrete maths engine (Euler, DFS, Floyd-Warshall, CPP)
 ├── presets.js          # Five benchmark maps (Practice, Circuit, Path, Society, Disconnected)
-├── planner.js          # Map interactions, Leaflet sync, haversine distance, live analysis
+├── planner.js          # Map interactions, toolbar tools, and live degree/verdict analysis
 ├── route-view.js       # Route rendering, Chinese Postman table, and step-by-step animation
 └── tests/
     └── logic.test.js   # Node.js unit and property test suite
@@ -91,14 +82,14 @@ MFCS-Smart_Garbage_Route_Planner/
 
 ---
 
-## 8. Limitations & Assumptions
+## 7. Limitations & Assumptions
 
+- Lengths are entered by the user, and default to the on-screen distance between junctions.
 - Streets are modeled as two-way (undirected edges).
-- Default street lengths are straight-line distances measured on the map with the haversine formula, unless entered manually.
 - The Chinese Postman solver evaluates all $(2k-1)!!$ pairings of odd junctions and supports up to **12 odd junctions** (10,395 pairings).
 
 ---
 
-## 9. AI Assistance Statement
+## 8. AI Assistance Statement
 
-AI coding assistants (Antigravity / Claude) were used to help scaffold the HTML/CSS layout, integrate the Leaflet/SVG coordinate synchronization, and structure the unit test harness. All discrete mathematics algorithms in `logic.js` (degree counting, Handshaking verification, DFS connectivity, Floyd-Warshall shortest paths, recursive odd-vertex matching, and Hierholzer's Euler tour construction) and UI integrations were reviewed, tested, and verified by the team (`25BAM053`, `25BAM076`).
+AI coding assistants (Antigravity / Claude) were used to help scaffold the HTML/CSS layout and structure the unit test harness. All discrete mathematics algorithms in `logic.js` (degree counting, Handshaking verification, DFS connectivity, Floyd-Warshall shortest paths, recursive odd-vertex matching, and Hierholzer's Euler tour construction) and UI integrations were reviewed, tested, and verified by the team (`25BAM053`, `25BAM076`).

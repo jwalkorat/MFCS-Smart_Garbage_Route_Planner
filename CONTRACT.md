@@ -30,7 +30,6 @@ const graph = {
 - **Junctions:**
   - `id` (`string`): "A", "B", ... "Z", "A1", etc.
   - `x`, `y` (`number`): SVG canvas coordinates (`viewBox="0 0 900 600"`).
-  - `lat`, `lng` (`number`, optional): Geographic coordinates in decimal degrees when placed on the real street map. The maths in `logic.js` ignores these fields.
 - **Streets:**
   - `id` (`number`): Unique integer.
   - `from` (`string`), `to` (`string`): Connected junction IDs.

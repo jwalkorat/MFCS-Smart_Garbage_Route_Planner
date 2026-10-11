@@ -7,7 +7,7 @@
   // Application State
   const state = {
     graph: { junctions: [], streets: [] },
-    activeTool: "pan", // 'pan' | 'add-junction' | 'add-street' | 'move' | 'delete'
+    activeTool: "add-junction", // 'add-junction' | 'add-street' | 'move' | 'delete'
     selectedJunction: null,
     draggingJunction: null,
     dragOffset: { x: 0, y: 0 },
@@ -15,10 +15,7 @@
   };
 
   // DOM Elements
-  const mapStage = document.getElementById("map-stage");
-  const realMapEl = document.getElementById("real-map");
   const mapSvg = document.getElementById("map-svg");
-  const gridRect = document.getElementById("grid-rect");
   const streetLayer = document.getElementById("street-layer");
   const routeLayer = document.getElementById("route-layer");
   const junctionLayer = document.getElementById("junction-layer");
@@ -29,147 +26,9 @@
   const cardVerdict = document.getElementById("card-verdict");
   const cardDegrees = document.getElementById("card-degrees");
 
-  // Leaflet & UI state
-  let leafletMap = null;
-  let tileLayer = null;
-  let tileErrorShown = false;
-  let syncRafId = null;
+  // Tooltip element
   let hoverTooltip = null;
   let activePopover = null;
-
-  /**
-   * Measures straight-line distance in metres between two latitude/longitude points
-   * on a sphere using the haversine formula (Earth radius = 6,371,000 m).
-   */
-  function distanceInMetres(lat1, lng1, lat2, lng2) {
-    const R = 6371000; // Earth radius in metres
-    const toRad = (deg) => (deg * Math.PI) / 180;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  /**
-   * Returns current pixel width and height of the map stage.
-   */
-  function getStageDimensions() {
-    if (!mapStage) return { width: 900, height: 600 };
-    const rect = mapStage.getBoundingClientRect();
-    return {
-      width: rect.width > 0 ? rect.width : 900,
-      height: rect.height > 0 ? rect.height : 600
-    };
-  }
-
-  /**
-   * Converts SVG viewBox coordinates (0..900, 0..600) to geographic { lat, lng } rounded to 6 decimals.
-   */
-  function svgToLatLng(x, y) {
-    if (!leafletMap || typeof L === "undefined") return null;
-    const { width, height } = getStageDimensions();
-    const containerPoint = L.point((x * width) / 900, (y * height) / 600);
-    const latlng = leafletMap.containerPointToLatLng(containerPoint);
-    return {
-      lat: Number(latlng.lat.toFixed(6)),
-      lng: Number(latlng.lng.toFixed(6))
-    };
-  }
-
-  /**
-   * Ensures every junction in the given graph has lat and lng fields computed from the current map view.
-   */
-  function assignMissingLatLngs(graph) {
-    if (!leafletMap || !graph || !Array.isArray(graph.junctions)) return;
-    graph.junctions.forEach((j) => {
-      if (typeof j.lat !== "number" || typeof j.lng !== "number") {
-        const coords = svgToLatLng(j.x, j.y);
-        if (coords) {
-          j.lat = coords.lat;
-          j.lng = coords.lng;
-        }
-      }
-    });
-  }
-
-  /**
-   * Updates only the position attributes of existing SVG elements (junctions, streets, labels)
-   * without rebuilding the DOM on every pan/zoom frame.
-   */
-  function updateOverlayPositions() {
-    if (!streetLayer || !junctionLayer) return;
-    const jMap = new Map(state.graph.junctions.map(j => [j.id, j]));
-
-    // Update junction group transforms
-    const junctionNodes = junctionLayer.querySelectorAll(".junction-node[data-junction-id]");
-    junctionNodes.forEach((group) => {
-      const j = jMap.get(group.getAttribute("data-junction-id"));
-      if (j) {
-        group.setAttribute("transform", `translate(${j.x}, ${j.y})`);
-      }
-    });
-
-    // Update street lines, halos, and midpoint labels
-    const sMap = new Map(state.graph.streets.map(s => [String(s.id), s]));
-    const streetLines = streetLayer.querySelectorAll("line[data-street-id]");
-    streetLines.forEach((line) => {
-      const street = sMap.get(line.getAttribute("data-street-id"));
-      if (!street) return;
-      const fromJ = jMap.get(street.from);
-      const toJ = jMap.get(street.to);
-      if (!fromJ || !toJ) return;
-      line.setAttribute("x1", fromJ.x);
-      line.setAttribute("y1", fromJ.y);
-      line.setAttribute("x2", toJ.x);
-      line.setAttribute("y2", toJ.y);
-    });
-
-    const labelGroups = streetLayer.querySelectorAll(".street-label-group[data-street-id]");
-    labelGroups.forEach((labelGroup) => {
-      const street = sMap.get(labelGroup.getAttribute("data-street-id"));
-      if (!street) return;
-      const fromJ = jMap.get(street.from);
-      const toJ = jMap.get(street.to);
-      if (!fromJ || !toJ) return;
-      const midX = (fromJ.x + toJ.x) / 2;
-      const midY = (fromJ.y + toJ.y) / 2;
-      labelGroup.setAttribute("transform", `translate(${midX}, ${midY})`);
-    });
-  }
-
-  /**
-   * Updates SVG (x, y) positions of all junctions that have (lat, lng) so the overlay stays locked to the street map.
-   */
-  function syncJunctionsToMap() {
-    if (!leafletMap) return;
-    const { width, height } = getStageDimensions();
-    if (width <= 0 || height <= 0) return;
-
-    state.graph.junctions.forEach((j) => {
-      if (typeof j.lat === "number" && typeof j.lng === "number") {
-        const point = leafletMap.latLngToContainerPoint([j.lat, j.lng]);
-        j.x = Math.round(((point.x * 900) / width) * 100) / 100;
-        j.y = Math.round(((point.y * 600) / height) * 100) / 100;
-      }
-    });
-
-    updateOverlayPositions();
-  }
-
-  /**
-   * Throttles syncJunctionsToMap using requestAnimationFrame during smooth panning/zooming.
-   */
-  function scheduleSync() {
-    if (syncRafId !== null) return;
-    syncRafId = requestAnimationFrame(() => {
-      syncRafId = null;
-      syncJunctionsToMap();
-    });
-  }
 
   /**
    * Generates next alphabetical junction ID (A..Z, then A1..Z1, etc.)
@@ -215,44 +74,15 @@
   function updateToolTips() {
     if (!toolTipText) return;
     const tips = {
-      "pan": "Pan and zoom the street map to your area, then choose Add junction.",
-      "add-junction": "Click on the map to place a junction (use Pan map to move the map).",
-      "add-street": "Click the start junction, then click the end junction to connect them (use Pan map to move the map).",
-      "move": "Click and drag any junction to reposition it (use Pan map to move the map).",
-      "delete": "Click a junction or street to remove it (use Pan map to move the map)."
+      "add-junction": "Click empty space on the grid to place a junction.",
+      "add-street": "Click the start junction, then click the end junction to connect them.",
+      "move": "Click and drag any junction to reposition it on the map.",
+      "delete": "Click a junction or street to remove it from the network."
     };
     const tipSpan = toolTipText.querySelector("span");
     if (tipSpan) {
       tipSpan.textContent = tips[state.activeTool] || "";
     }
-  }
-
-  /**
-   * Enables or disables Leaflet map interactions based on whether Pan map is the active tool.
-   */
-  function applyToolModeToMap() {
-    if (!mapSvg) return;
-
-    if (state.activeTool === "pan" && leafletMap) {
-      mapSvg.classList.add("pan-mode");
-      leafletMap.dragging.enable();
-      leafletMap.scrollWheelZoom.enable();
-      leafletMap.touchZoom.enable();
-      leafletMap.keyboard.enable();
-    } else {
-      mapSvg.classList.remove("pan-mode");
-      if (leafletMap) {
-        leafletMap.dragging.disable();
-        leafletMap.scrollWheelZoom.disable();
-        leafletMap.touchZoom.disable();
-        leafletMap.keyboard.disable();
-      }
-    }
-
-    mapSvg.classList.remove("cursor-move", "cursor-delete", "cursor-street");
-    if (state.activeTool === "move") mapSvg.classList.add("cursor-move");
-    else if (state.activeTool === "delete") mapSvg.classList.add("cursor-delete");
-    else if (state.activeTool === "add-street") mapSvg.classList.add("cursor-street");
   }
 
   /**
@@ -356,7 +186,7 @@
     popover.appendChild(inputGroup);
     popover.appendChild(actions);
 
-    const mapContainer = document.getElementById("map-stage") || document.getElementById("map-container");
+    const mapContainer = document.getElementById("map-container");
     mapContainer.style.position = "relative";
     popover.style.top = "50%";
     popover.style.left = "50%";
@@ -397,7 +227,7 @@
   }
 
   /**
-   * Renders the complete SVG map: streets (with white halo), midpoint labels, and junctions.
+   * Renders the complete SVG map: streets, midpoint labels, and junctions.
    */
   function renderMap() {
     if (!streetLayer || !junctionLayer) return;
@@ -413,16 +243,6 @@
       const fromJ = jMap.get(street.from);
       const toJ = jMap.get(street.to);
       if (!fromJ || !toJ) return;
-
-      // White under-stroke halo for clear contrast over OpenStreetMap tiles
-      const halo = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      halo.setAttribute("x1", fromJ.x);
-      halo.setAttribute("y1", fromJ.y);
-      halo.setAttribute("x2", toJ.x);
-      halo.setAttribute("y2", toJ.y);
-      halo.setAttribute("class", "street-line-halo");
-      halo.setAttribute("data-street-id", street.id);
-      streetLayer.appendChild(halo);
 
       const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
       line.setAttribute("x1", fromJ.x);
@@ -587,16 +407,7 @@
         return;
       }
 
-      // Compute default street length in metres using Haversine when lat/lng are available
-      let defaultDist;
-      if (
-        typeof j1.lat === "number" && typeof j1.lng === "number" &&
-        typeof j2.lat === "number" && typeof j2.lng === "number"
-      ) {
-        defaultDist = Math.max(1, Math.round(distanceInMetres(j1.lat, j1.lng, j2.lat, j2.lng)));
-      } else {
-        defaultDist = Math.max(1, Math.round(Math.hypot(j2.x - j1.x, j2.y - j1.y)));
-      }
+      const defaultDist = Math.max(1, Math.round(Math.hypot(j2.x - j1.x, j2.y - j1.y)));
 
       promptStreetLength(j1, j2, defaultDist, (length) => {
         const nextStreetId = state.graph.streets.reduce((max, s) => Math.max(max, s.id), 0) + 1;
@@ -708,9 +519,11 @@
   }
 
   /**
-   * Notifies registered listeners (such as route-view.js) without re-running full analysis.
+   * Fires map change notification, re-rendering the SVG map, analysis panel, and listeners.
    */
-  function notifyListenersOnly() {
+  function notifyMapChange() {
+    renderMap();
+    renderAnalysis();
     state.listeners.forEach(fn => {
       try {
         fn(state.graph);
@@ -721,142 +534,6 @@
   }
 
   /**
-   * Fires map change notification, re-rendering the SVG map, analysis panel, and listeners.
-   */
-  function notifyMapChange() {
-    renderMap();
-    renderAnalysis();
-    notifyListenersOnly();
-  }
-
-  /**
-   * Initializes the Leaflet real street map underlay and binds sync events.
-   */
-  function initRealMap() {
-    const btnPan = document.getElementById("tool-pan");
-    const btnAddJunction = document.getElementById("tool-add-junction");
-
-    if (typeof L === "undefined" || !realMapEl) {
-      // Offline fallback: Leaflet did not load
-      if (gridRect) gridRect.style.display = "block";
-      if (btnPan) btnPan.style.display = "none";
-      if (btnAddJunction) btnAddJunction.classList.add("active");
-      const mapStyleSelect = document.getElementById("map-style");
-      if (mapStyleSelect) mapStyleSelect.value = "grid";
-      state.activeTool = "add-junction";
-      if (mapSvg) mapSvg.classList.remove("pan-mode");
-      updateToolTips();
-      showToast("Street map unavailable offline. Using the plain grid.");
-      return;
-    }
-
-    // Free CARTO basemaps key. It is visible in the browser by design, so it is restricted by domain in the CARTO dashboard. Do not reuse it in other projects.
-    const CARTO_KEY = "cb1_4gre_1_4817c49ad367081d31fea6e6";
-    const TILE_URL = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=" + CARTO_KEY;
-    const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
-
-    // Hide plain grid when real map is active
-    if (gridRect) gridRect.style.display = "none";
-
-    leafletMap = L.map("real-map", {
-      center: [23.0225, 72.5714], // Ahmedabad
-      zoom: 16,
-      doubleClickZoom: false,
-      zoomAnimation: true,
-      zoomSnap: 0.5,
-      zoomDelta: 0.5,
-      wheelPxPerZoomLevel: 120,
-      wheelDebounceTime: 40,
-      inertia: true
-    });
-
-    tileLayer = L.tileLayer(TILE_URL, {
-      maxZoom: 20,
-      updateWhenZooming: false,
-      keepBuffer: 4,
-      attribution: TILE_ATTRIBUTION
-    }).addTo(leafletMap);
-
-    tileLayer.on("tileerror", () => {
-      if (!tileErrorShown) {
-        tileErrorShown = true;
-        showToast("Map tiles could not be loaded. Check your internet connection.");
-      }
-    });
-
-    // Clear stale routes once when panning or zooming starts
-    leafletMap.on("movestart", () => {
-      notifyListenersOnly();
-    });
-    leafletMap.on("zoomstart", () => {
-      notifyListenersOnly();
-    });
-
-    let isZoomAnimating = false;
-
-    // Keep SVG overlay in step with Leaflet's CSS zoom animation
-    leafletMap.on("zoomanim", (e) => {
-      if (!mapSvg) return;
-      isZoomAnimating = true;
-      if (syncRafId !== null) {
-        cancelAnimationFrame(syncRafId);
-        syncRafId = null;
-      }
-      const s = leafletMap.getZoomScale(e.zoom, leafletMap.getZoom());
-      const c0 = leafletMap.latLngToContainerPoint(e.center);
-      const { width, height } = getStageDimensions();
-      const c1 = { x: width / 2, y: height / 2 };
-      const tx = c1.x - s * c0.x;
-      const ty = c1.y - s * c0.y;
-      mapSvg.style.transformOrigin = "0 0";
-      mapSvg.style.transition = "transform 250ms cubic-bezier(0, 0, 0.25, 1)";
-      mapSvg.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
-    });
-
-    // Keep SVG junctions synced during and after pan/zoom
-    leafletMap.on("move", () => {
-      if (!isZoomAnimating) scheduleSync();
-    });
-    leafletMap.on("zoom", () => {
-      if (!isZoomAnimating) scheduleSync();
-    });
-    leafletMap.on("moveend", () => {
-      if (isZoomAnimating) return;
-      if (syncRafId !== null) {
-        cancelAnimationFrame(syncRafId);
-        syncRafId = null;
-      }
-      syncJunctionsToMap();
-    });
-    leafletMap.on("zoomend", () => {
-      isZoomAnimating = false;
-      if (syncRafId !== null) {
-        cancelAnimationFrame(syncRafId);
-        syncRafId = null;
-      }
-      if (mapSvg) {
-        mapSvg.style.transition = "";
-        mapSvg.style.transform = "";
-        mapSvg.style.transformOrigin = "";
-      }
-      syncJunctionsToMap();
-    });
-
-    // ResizeObserver on #map-stage to keep Leaflet and SVG overlay aligned on window resize
-    if (typeof ResizeObserver !== "undefined" && mapStage) {
-      const ro = new ResizeObserver(() => {
-        if (leafletMap) {
-          leafletMap.invalidateSize();
-          syncJunctionsToMap();
-        }
-      });
-      ro.observe(mapStage);
-    }
-
-    applyToolModeToMap();
-  }
-
-  /**
    * Sets up map canvas events: adding junctions and drag-move interactions.
    */
   function setupMapInteractions() {
@@ -864,13 +541,7 @@
       if (state.activeTool === "add-junction") {
         const coords = getSvgCoordinates(e);
         const nextId = getNextJunctionId(state.graph.junctions);
-        const newJunction = { id: nextId, x: coords.x, y: coords.y };
-        const geo = svgToLatLng(coords.x, coords.y);
-        if (geo) {
-          newJunction.lat = geo.lat;
-          newJunction.lng = geo.lng;
-        }
-        state.graph.junctions.push(newJunction);
+        state.graph.junctions.push({ id: nextId, x: coords.x, y: coords.y });
         showToast(`Added junction ${nextId}`);
         notifyMapChange();
       } else if (state.activeTool === "add-street" && state.selectedJunction) {
@@ -884,17 +555,12 @@
         const coords = getSvgCoordinates(e);
         state.draggingJunction.x = Math.max(25, Math.min(875, coords.x + state.dragOffset.x));
         state.draggingJunction.y = Math.max(25, Math.min(575, coords.y + state.dragOffset.y));
-        updateOverlayPositions();
+        renderMap();
       }
     });
 
     window.addEventListener("mouseup", () => {
       if (state.draggingJunction) {
-        const geo = svgToLatLng(state.draggingJunction.x, state.draggingJunction.y);
-        if (geo) {
-          state.draggingJunction.lat = geo.lat;
-          state.draggingJunction.lng = geo.lng;
-        }
         state.draggingJunction = null;
         notifyMapChange();
       }
@@ -902,7 +568,7 @@
   }
 
   /**
-   * Sets up toolbar buttons, place search, and map style toggle.
+   * Sets up toolbar buttons and examples dropdown.
    */
   function setupToolbar() {
     const toolBtns = document.querySelectorAll(".tool-btn[data-tool]");
@@ -914,7 +580,12 @@
         state.selectedJunction = null;
         closeStreetPopover();
 
-        applyToolModeToMap();
+        // Update cursor class on SVG
+        mapSvg.classList.remove("cursor-move", "cursor-delete", "cursor-street");
+        if (state.activeTool === "move") mapSvg.classList.add("cursor-move");
+        else if (state.activeTool === "delete") mapSvg.classList.add("cursor-delete");
+        else if (state.activeTool === "add-street") mapSvg.classList.add("cursor-street");
+
         updateToolTips();
         renderMap();
       });
@@ -946,85 +617,6 @@
         const idx = parseInt(examplesDropdown.value, 10);
         if (!isNaN(idx) && PRESETS[idx]) {
           loadPreset(PRESETS[idx]);
-        }
-      });
-    }
-
-    // Place Search via OpenStreetMap Nominatim
-    const placeSearchInput = document.getElementById("place-search");
-    const placeSearchBtn = document.getElementById("place-search-btn");
-
-    async function runPlaceSearch() {
-      if (!placeSearchInput || !placeSearchBtn) return;
-      const query = placeSearchInput.value.trim();
-      if (!query) return;
-
-      if (!leafletMap) {
-        showToast("Search needs an internet connection.");
-        return;
-      }
-
-      placeSearchBtn.disabled = true;
-      try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
-        const response = await fetch(url, {
-          headers: { "Accept": "application/json" }
-        });
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        const results = await response.json();
-        if (!Array.isArray(results) || results.length === 0) {
-          showToast("Place not found.");
-        } else {
-          const lat = parseFloat(results[0].lat);
-          const lon = parseFloat(results[0].lon);
-          if (!isNaN(lat) && !isNaN(lon)) {
-            leafletMap.setView([lat, lon], 17);
-          } else {
-            showToast("Place not found.");
-          }
-        }
-      } catch (err) {
-        showToast("Search needs an internet connection.");
-      } finally {
-        placeSearchBtn.disabled = false;
-      }
-    }
-
-    if (placeSearchBtn) {
-      placeSearchBtn.addEventListener("click", runPlaceSearch);
-    }
-    if (placeSearchInput) {
-      placeSearchInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          runPlaceSearch();
-        }
-      });
-    }
-
-    // Map Style Select ("Street map" vs "Plain grid")
-    const mapStyleSelect = document.getElementById("map-style");
-    if (mapStyleSelect) {
-      mapStyleSelect.addEventListener("change", () => {
-        const mode = mapStyleSelect.value;
-        if (mode === "grid") {
-          if (leafletMap && tileLayer && leafletMap.hasLayer(tileLayer)) {
-            leafletMap.removeLayer(tileLayer);
-          }
-          if (gridRect) gridRect.style.display = "block";
-        } else {
-          if (!leafletMap || !tileLayer) {
-            showToast("Street map unavailable offline. Using the plain grid.");
-            mapStyleSelect.value = "grid";
-            if (gridRect) gridRect.style.display = "block";
-            return;
-          }
-          if (!leafletMap.hasLayer(tileLayer)) {
-            tileLayer.addTo(leafletMap);
-          }
-          if (gridRect) gridRect.style.display = "none";
         }
       });
     }
@@ -1078,11 +670,10 @@
   }
 
   /**
-   * Loads a preset map into the application state and anchors its junctions to the current map view.
+   * Loads a preset map into the application state.
    */
   function loadPreset(preset) {
     state.graph = JSON.parse(JSON.stringify(preset.graph));
-    assignMissingLatLngs(state.graph);
     state.selectedJunction = null;
     showToast(`Loaded preset: ${preset.name}`);
     notifyMapChange();
@@ -1090,7 +681,6 @@
 
   // Initialize
   function init() {
-    initRealMap();
     setupToolbar();
     setupMapInteractions();
     updateToolTips();
@@ -1109,7 +699,6 @@
     getGraph: () => state.graph,
     setGraph: (g) => {
       state.graph = g;
-      assignMissingLatLngs(state.graph);
       notifyMapChange();
     },
     onMapChange: (fn) => { state.listeners.push(fn); },
@@ -1117,9 +706,7 @@
     renderAnalysis,
     showToast,
     getSvgElement: () => mapSvg,
-    getRouteLayer: () => routeLayer,
-    getLeafletMap: () => leafletMap,
-    distanceInMetres
+    getRouteLayer: () => routeLayer
   };
 
   if (document.readyState === "loading") {
