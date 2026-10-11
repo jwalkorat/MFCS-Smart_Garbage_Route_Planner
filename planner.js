@@ -7,7 +7,7 @@
   // Application State
   const state = {
     graph: { junctions: [], streets: [] },
-    activeTool: "add-junction", // 'add-junction' | 'add-street' | 'move' | 'delete'
+    activeTool: "pan", // 'pan' | 'add-junction' | 'add-street' | 'move' | 'delete'
     selectedJunction: null,
     draggingJunction: null,
     dragOffset: { x: 0, y: 0 },
@@ -15,7 +15,10 @@
   };
 
   // DOM Elements
+  const mapStage = document.getElementById("map-stage");
+  const realMapEl = document.getElementById("real-map");
   const mapSvg = document.getElementById("map-svg");
+  const gridRect = document.getElementById("grid-rect");
   const streetLayer = document.getElementById("street-layer");
   const routeLayer = document.getElementById("route-layer");
   const junctionLayer = document.getElementById("junction-layer");
@@ -25,14 +28,106 @@
 
   const cardVerdict = document.getElementById("card-verdict");
   const cardDegrees = document.getElementById("card-degrees");
-  const cardRoute = document.getElementById("card-route");
 
-  // Tooltip & Popover references
+  // Leaflet & UI state
+  let leafletMap = null;
+  let tileLayer = null;
+  let tileErrorShown = false;
+  let syncRafId = null;
   let hoverTooltip = null;
   let activePopover = null;
 
   /**
-   * Generates next alphabetical junction ID (A..Z, then A1..Z1, B1..Z1, etc.)
+   * Measures straight-line distance in metres between two latitude/longitude points
+   * on a sphere using the haversine formula (Earth radius = 6,371,000 m).
+   */
+  function distanceInMetres(lat1, lng1, lat2, lng2) {
+    const R = 6371000; // Earth radius in metres
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  /**
+   * Returns current pixel width and height of the map stage.
+   */
+  function getStageDimensions() {
+    if (!mapStage) return { width: 900, height: 600 };
+    const rect = mapStage.getBoundingClientRect();
+    return {
+      width: rect.width > 0 ? rect.width : 900,
+      height: rect.height > 0 ? rect.height : 600
+    };
+  }
+
+  /**
+   * Converts SVG viewBox coordinates (0..900, 0..600) to geographic { lat, lng } rounded to 6 decimals.
+   */
+  function svgToLatLng(x, y) {
+    if (!leafletMap || typeof L === "undefined") return null;
+    const { width, height } = getStageDimensions();
+    const containerPoint = L.point((x * width) / 900, (y * height) / 600);
+    const latlng = leafletMap.containerPointToLatLng(containerPoint);
+    return {
+      lat: Number(latlng.lat.toFixed(6)),
+      lng: Number(latlng.lng.toFixed(6))
+    };
+  }
+
+  /**
+   * Ensures every junction in the given graph has lat and lng fields computed from the current map view.
+   */
+  function assignMissingLatLngs(graph) {
+    if (!leafletMap || !graph || !Array.isArray(graph.junctions)) return;
+    graph.junctions.forEach((j) => {
+      if (typeof j.lat !== "number" || typeof j.lng !== "number") {
+        const coords = svgToLatLng(j.x, j.y);
+        if (coords) {
+          j.lat = coords.lat;
+          j.lng = coords.lng;
+        }
+      }
+    });
+  }
+
+  /**
+   * Updates SVG (x, y) positions of all junctions that have (lat, lng) so the overlay stays locked to the street map.
+   */
+  function syncJunctionsToMap() {
+    if (!leafletMap) return;
+    const { width, height } = getStageDimensions();
+    if (width <= 0 || height <= 0) return;
+
+    state.graph.junctions.forEach((j) => {
+      if (typeof j.lat === "number" && typeof j.lng === "number") {
+        const point = leafletMap.latLngToContainerPoint([j.lat, j.lng]);
+        j.x = Math.round(((point.x * 900) / width) * 100) / 100;
+        j.y = Math.round(((point.y * 600) / height) * 100) / 100;
+      }
+    });
+
+    renderMap();
+  }
+
+  /**
+   * Throttles syncJunctionsToMap using requestAnimationFrame during smooth panning/zooming.
+   */
+  function scheduleSync() {
+    if (syncRafId !== null) return;
+    syncRafId = requestAnimationFrame(() => {
+      syncRafId = null;
+      syncJunctionsToMap();
+    });
+  }
+
+  /**
+   * Generates next alphabetical junction ID (A..Z, then A1..Z1, etc.)
    */
   function getNextJunctionId(junctions) {
     const existing = new Set(junctions.map(j => j.id));
@@ -75,10 +170,11 @@
   function updateToolTips() {
     if (!toolTipText) return;
     const tips = {
-      "add-junction": "Click empty space on the grid to place a junction.",
-      "add-street": "Click the start junction, then click the end junction to connect them.",
-      "move": "Click and drag any junction to reposition it.",
-      "delete": "Click a junction or street to remove it."
+      "pan": "Pan and zoom the street map to your area, then choose Add junction.",
+      "add-junction": "Click on the map to place a junction (use Pan map to move the map).",
+      "add-street": "Click the start junction, then click the end junction to connect them (use Pan map to move the map).",
+      "move": "Click and drag any junction to reposition it (use Pan map to move the map).",
+      "delete": "Click a junction or street to remove it (use Pan map to move the map)."
     };
     const tipSpan = toolTipText.querySelector("span");
     if (tipSpan) {
@@ -87,12 +183,40 @@
   }
 
   /**
+   * Enables or disables Leaflet map interactions based on whether Pan map is the active tool.
+   */
+  function applyToolModeToMap() {
+    if (!mapSvg) return;
+
+    if (state.activeTool === "pan" && leafletMap) {
+      mapSvg.classList.add("pan-mode");
+      leafletMap.dragging.enable();
+      leafletMap.scrollWheelZoom.enable();
+      leafletMap.touchZoom.enable();
+      leafletMap.keyboard.enable();
+    } else {
+      mapSvg.classList.remove("pan-mode");
+      if (leafletMap) {
+        leafletMap.dragging.disable();
+        leafletMap.scrollWheelZoom.disable();
+        leafletMap.touchZoom.disable();
+        leafletMap.keyboard.disable();
+      }
+    }
+
+    mapSvg.classList.remove("cursor-move", "cursor-delete", "cursor-street");
+    if (state.activeTool === "move") mapSvg.classList.add("cursor-move");
+    else if (state.activeTool === "delete") mapSvg.classList.add("cursor-delete");
+    else if (state.activeTool === "add-street") mapSvg.classList.add("cursor-street");
+  }
+
+  /**
    * Converts mouse event client coordinates to SVG viewBox (900x600) coordinates.
    */
   function getSvgCoordinates(evt) {
     const rect = mapSvg.getBoundingClientRect();
-    const scaleX = 900 / rect.width;
-    const scaleY = 600 / rect.height;
+    const scaleX = 900 / (rect.width || 900);
+    const scaleY = 600 / (rect.height || 600);
     const x = Math.round((evt.clientX - rect.left) * scaleX);
     const y = Math.round((evt.clientY - rect.top) * scaleY);
     return {
@@ -172,7 +296,7 @@
 
     const btnCancel = document.createElement("button");
     btnCancel.type = "button";
-    btnCancel.className = "btn btn-secondary";
+    btnCancel.className = "btn btn-ghost";
     btnCancel.textContent = "Cancel";
 
     const btnOk = document.createElement("button");
@@ -187,7 +311,7 @@
     popover.appendChild(inputGroup);
     popover.appendChild(actions);
 
-    const mapContainer = document.getElementById("map-container");
+    const mapContainer = document.getElementById("map-stage") || document.getElementById("map-container");
     mapContainer.style.position = "relative";
     popover.style.top = "50%";
     popover.style.left = "50%";
@@ -228,12 +352,11 @@
   }
 
   /**
-   * Renders the complete SVG map: streets, labels, and junctions.
+   * Renders the complete SVG map: streets (with white halo), midpoint labels, and junctions.
    */
   function renderMap() {
     if (!streetLayer || !junctionLayer) return;
 
-    // Clear SVG layers (preserve routeLayer structure)
     streetLayer.innerHTML = "";
     junctionLayer.innerHTML = "";
 
@@ -245,6 +368,15 @@
       const fromJ = jMap.get(street.from);
       const toJ = jMap.get(street.to);
       if (!fromJ || !toJ) return;
+
+      // White under-stroke halo for clear contrast over OpenStreetMap tiles
+      const halo = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      halo.setAttribute("x1", fromJ.x);
+      halo.setAttribute("y1", fromJ.y);
+      halo.setAttribute("x2", toJ.x);
+      halo.setAttribute("y2", toJ.y);
+      halo.setAttribute("class", "street-line-halo");
+      streetLayer.appendChild(halo);
 
       const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
       line.setAttribute("x1", fromJ.x);
@@ -265,7 +397,7 @@
 
       streetLayer.appendChild(line);
 
-      // Midpoint length label
+      // Midpoint length label pill
       const midX = (fromJ.x + toJ.x) / 2;
       const midY = (fromJ.y + toJ.y) / 2;
       const labelText = `${street.length}m`;
@@ -408,8 +540,18 @@
         return;
       }
 
-      const pixelDist = Math.round(Math.hypot(j2.x - j1.x, j2.y - j1.y));
-      promptStreetLength(j1, j2, pixelDist, (length) => {
+      // Compute default street length in metres using Haversine when lat/lng are available
+      let defaultDist;
+      if (
+        typeof j1.lat === "number" && typeof j1.lng === "number" &&
+        typeof j2.lat === "number" && typeof j2.lng === "number"
+      ) {
+        defaultDist = Math.max(1, Math.round(distanceInMetres(j1.lat, j1.lng, j2.lat, j2.lng)));
+      } else {
+        defaultDist = Math.max(1, Math.round(Math.hypot(j2.x - j1.x, j2.y - j1.y)));
+      }
+
+      promptStreetLength(j1, j2, defaultDist, (length) => {
         const nextStreetId = state.graph.streets.reduce((max, s) => Math.max(max, s.id), 0) + 1;
         state.graph.streets.push({
           id: nextStreetId,
@@ -432,7 +574,9 @@
 
     const verdict = getVerdict(state.graph);
     const degrees = getDegrees(state.graph);
-    const handshaking = typeof checkHandshaking === "function" ? checkHandshaking(state.graph) : { sumOfDegrees: 0, twiceStreets: 0, holds: false };
+    const handshaking = typeof checkHandshaking === "function"
+      ? checkHandshaking(state.graph)
+      : { sumOfDegrees: 0, twiceStreets: 0, holds: false };
 
     // 1. Render Verdict Banner
     if (cardVerdict) {
@@ -517,11 +661,9 @@
   }
 
   /**
-   * Fires map change notification to registered listeners (e.g., route planner).
+   * Notifies registered listeners (such as route-view.js) without re-running full analysis.
    */
-  function notifyMapChange() {
-    renderMap();
-    renderAnalysis();
+  function notifyListenersOnly() {
     state.listeners.forEach(fn => {
       try {
         fn(state.graph);
@@ -532,6 +674,95 @@
   }
 
   /**
+   * Fires map change notification, re-rendering the SVG map, analysis panel, and listeners.
+   */
+  function notifyMapChange() {
+    renderMap();
+    renderAnalysis();
+    notifyListenersOnly();
+  }
+
+  /**
+   * Initializes the Leaflet real street map underlay and binds sync events.
+   */
+  function initRealMap() {
+    const btnPan = document.getElementById("tool-pan");
+    const btnAddJunction = document.getElementById("tool-add-junction");
+
+    if (typeof L === "undefined" || !realMapEl) {
+      // Offline fallback: Leaflet did not load
+      if (gridRect) gridRect.style.display = "block";
+      if (btnPan) btnPan.style.display = "none";
+      if (btnAddJunction) btnAddJunction.classList.add("active");
+      state.activeTool = "add-junction";
+      if (mapSvg) mapSvg.classList.remove("pan-mode");
+      updateToolTips();
+      showToast("Street map unavailable offline. Using the plain grid.");
+      return;
+    }
+
+    // Hide plain grid when real map is active
+    if (gridRect) gridRect.style.display = "none";
+
+    leafletMap = L.map("real-map", {
+      center: [23.0225, 72.5714], // Ahmedabad
+      zoom: 16,
+      doubleClickZoom: false
+    });
+
+    tileLayer = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(leafletMap);
+
+    tileLayer.on("tileerror", () => {
+      if (!tileErrorShown) {
+        tileErrorShown = true;
+        showToast("Map tiles could not be loaded. Check your internet connection.");
+      }
+    });
+
+    // Clear stale routes once when panning or zooming starts
+    leafletMap.on("movestart", () => {
+      notifyListenersOnly();
+    });
+    leafletMap.on("zoomstart", () => {
+      notifyListenersOnly();
+    });
+
+    // Keep SVG junctions synced during and after pan/zoom
+    leafletMap.on("move", scheduleSync);
+    leafletMap.on("zoom", scheduleSync);
+    leafletMap.on("moveend", () => {
+      if (syncRafId !== null) {
+        cancelAnimationFrame(syncRafId);
+        syncRafId = null;
+      }
+      syncJunctionsToMap();
+    });
+    leafletMap.on("zoomend", () => {
+      if (syncRafId !== null) {
+        cancelAnimationFrame(syncRafId);
+        syncRafId = null;
+      }
+      syncJunctionsToMap();
+    });
+
+    // ResizeObserver on #map-stage to keep Leaflet and SVG overlay aligned on window resize
+    if (typeof ResizeObserver !== "undefined" && mapStage) {
+      const ro = new ResizeObserver(() => {
+        if (leafletMap) {
+          leafletMap.invalidateSize();
+          syncJunctionsToMap();
+        }
+      });
+      ro.observe(mapStage);
+    }
+
+    applyToolModeToMap();
+  }
+
+  /**
    * Sets up map canvas events: adding junctions and drag-move interactions.
    */
   function setupMapInteractions() {
@@ -539,7 +770,13 @@
       if (state.activeTool === "add-junction") {
         const coords = getSvgCoordinates(e);
         const nextId = getNextJunctionId(state.graph.junctions);
-        state.graph.junctions.push({ id: nextId, x: coords.x, y: coords.y });
+        const newJunction = { id: nextId, x: coords.x, y: coords.y };
+        const geo = svgToLatLng(coords.x, coords.y);
+        if (geo) {
+          newJunction.lat = geo.lat;
+          newJunction.lng = geo.lng;
+        }
+        state.graph.junctions.push(newJunction);
         showToast(`Added junction ${nextId}`);
         notifyMapChange();
       } else if (state.activeTool === "add-street" && state.selectedJunction) {
@@ -559,6 +796,11 @@
 
     window.addEventListener("mouseup", () => {
       if (state.draggingJunction) {
+        const geo = svgToLatLng(state.draggingJunction.x, state.draggingJunction.y);
+        if (geo) {
+          state.draggingJunction.lat = geo.lat;
+          state.draggingJunction.lng = geo.lng;
+        }
         state.draggingJunction = null;
         notifyMapChange();
       }
@@ -576,12 +818,9 @@
         btn.classList.add("active");
         state.activeTool = btn.getAttribute("data-tool");
         state.selectedJunction = null;
+        closeStreetPopover();
 
-        mapSvg.classList.remove("cursor-move", "cursor-delete", "cursor-street");
-        if (state.activeTool === "move") mapSvg.classList.add("cursor-move");
-        else if (state.activeTool === "delete") mapSvg.classList.add("cursor-delete");
-        else if (state.activeTool === "add-street") mapSvg.classList.add("cursor-street");
-
+        applyToolModeToMap();
         updateToolTips();
         renderMap();
       });
@@ -639,7 +878,7 @@
     actions.style.justifyContent = "flex-end";
 
     const btnCancel = document.createElement("button");
-    btnCancel.className = "btn btn-secondary";
+    btnCancel.className = "btn btn-ghost";
     btnCancel.textContent = "Cancel";
 
     const btnOk = document.createElement("button");
@@ -666,10 +905,11 @@
   }
 
   /**
-   * Loads a preset map into the application state.
+   * Loads a preset map into the application state and anchors its junctions to the current map view.
    */
   function loadPreset(preset) {
     state.graph = JSON.parse(JSON.stringify(preset.graph));
+    assignMissingLatLngs(state.graph);
     state.selectedJunction = null;
     showToast(`Loaded preset: ${preset.name}`);
     notifyMapChange();
@@ -677,6 +917,7 @@
 
   // Initialize
   function init() {
+    initRealMap();
     setupToolbar();
     setupMapInteractions();
     updateToolTips();
@@ -690,16 +931,22 @@
     }
   }
 
-  // Global interface for route-view.js in Commit 4
+  // Global interface for route-view.js
   window.RouteWise = {
     getGraph: () => state.graph,
-    setGraph: (g) => { state.graph = g; notifyMapChange(); },
+    setGraph: (g) => {
+      state.graph = g;
+      assignMissingLatLngs(state.graph);
+      notifyMapChange();
+    },
     onMapChange: (fn) => { state.listeners.push(fn); },
     renderMap,
     renderAnalysis,
     showToast,
     getSvgElement: () => mapSvg,
-    getRouteLayer: () => routeLayer
+    getRouteLayer: () => routeLayer,
+    getLeafletMap: () => leafletMap,
+    distanceInMetres
   };
 
   if (document.readyState === "loading") {

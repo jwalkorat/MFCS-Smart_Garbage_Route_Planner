@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RouteWise - Interactive Route Planner</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="planner.css">
 </head>
@@ -31,23 +32,27 @@
         <!-- Toolbar -->
         <div class="toolbar-card">
           <div class="toolbar-actions" role="toolbar" aria-label="Map drawing tools">
-            <button id="tool-add-junction" class="tool-btn active" data-tool="add-junction" title="Add Junction (Click canvas)">
+            <button id="tool-pan" class="tool-btn active" data-tool="pan" aria-label="Pan map" title="Pan and zoom the street map">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+              <span>Pan map</span>
+            </button>
+            <button id="tool-add-junction" class="tool-btn" data-tool="add-junction" aria-label="Add junction" title="Add Junction (Click canvas)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
               <span>Add junction</span>
             </button>
-            <button id="tool-add-street" class="tool-btn" data-tool="add-street" title="Add Street (Click two junctions)">
+            <button id="tool-add-street" class="tool-btn" data-tool="add-street" aria-label="Add street" title="Add Street (Click two junctions)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12h16M4 12l4-4M4 12l4 4M20 12l-4-4M20 12l-4 4"/></svg>
               <span>Add street</span>
             </button>
-            <button id="tool-move" class="tool-btn" data-tool="move" title="Move Junction (Drag junction)">
+            <button id="tool-move" class="tool-btn" data-tool="move" aria-label="Move junction" title="Move Junction (Drag junction)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>
               <span>Move</span>
             </button>
-            <button id="tool-delete" class="tool-btn" data-tool="delete" title="Delete Element (Click element to remove)">
+            <button id="tool-delete" class="tool-btn" data-tool="delete" aria-label="Delete element" title="Delete Element (Click element to remove)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               <span>Delete</span>
             </button>
-            <button id="tool-clear" class="tool-btn" title="Clear entire map">
+            <button id="tool-clear" class="tool-btn" aria-label="Clear map" title="Clear entire map">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 3l18 18M9 3h6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12"/></svg>
               <span>Clear</span>
             </button>
@@ -64,45 +69,48 @@
 
           <div id="tool-tip-text" class="tool-tip">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span>Click empty space on the grid to place a junction.</span>
+            <span>Pan and zoom the street map to your area, then choose Add junction.</span>
           </div>
         </div>
 
         <!-- Map Card -->
         <div class="map-card">
-          <svg id="map-svg" viewBox="0 0 900 600" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <pattern id="grid-dots" width="30" height="30" patternUnits="userSpaceOnUse">
-                <circle cx="15" cy="15" r="1.5" fill="#CBD5E1"/>
-              </pattern>
-            </defs>
-            <rect width="900" height="600" fill="url(#grid-dots)"/>
-            <g id="street-layer"></g>
-            <g id="route-layer"></g>
-            <g id="junction-layer"></g>
-          </svg>
+          <div class="map-stage" id="map-stage">
+            <div id="real-map"></div>
+            <svg id="map-svg" class="pan-mode" viewBox="0 0 900 600" preserveAspectRatio="none">
+              <defs>
+                <pattern id="grid-dots" width="30" height="30" patternUnits="userSpaceOnUse">
+                  <circle cx="15" cy="15" r="1.5" fill="#CBD5E1"/>
+                </pattern>
+              </defs>
+              <rect id="grid-rect" width="900" height="600" fill="url(#grid-dots)"/>
+              <g id="street-layer"></g>
+              <g id="route-layer"></g>
+              <g id="junction-layer"></g>
+            </svg>
 
-          <!-- Legend -->
-          <div class="map-legend" aria-hidden="true">
-            <div class="legend-item">
-              <span class="legend-dot odd"></span>
-              <span>Odd junction (glow)</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-dot even"></span>
-              <span>Even junction</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-line"></span>
-              <span>Street</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-line route"></span>
-              <span>Route</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-line repeat"></span>
-              <span>Repeated street</span>
+            <!-- Legend -->
+            <div class="map-legend" aria-hidden="true">
+              <div class="legend-item">
+                <span class="legend-dot odd"></span>
+                <span>Odd junction (glow)</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot even"></span>
+                <span>Even junction</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-line"></span>
+                <span>Street</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-line route"></span>
+                <span>Route</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-line repeat"></span>
+                <span>Repeated street</span>
+              </div>
             </div>
           </div>
         </div>
@@ -144,6 +152,7 @@
   <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="presets.js"></script>
   <script src="logic.js"></script>
   <script src="planner.js"></script>

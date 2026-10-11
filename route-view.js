@@ -1,4 +1,4 @@
-// RouteWise - Route View & Visualization Integration
+// RouteWise - Route View, Visualization & Step-by-Step Animation
 // Mathematical Foundations for Computer Science (2CS802CC26), Nirma University
 // Connects discrete maths route logic (findRoute, solvePostman) to the SVG planner.
 
@@ -8,7 +8,7 @@
   const cardRoute = document.getElementById("card-route");
   if (!cardRoute) return;
 
-  // Initialize Card Route DOM structure as specified in Section 8
+  // Initialize Card Route DOM structure
   cardRoute.innerHTML = `
     <div class="analysis-header">
       <h3 class="analysis-title">
@@ -27,6 +27,21 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Find route
       </button>
+    </div>
+
+    <!-- Animation Playback Controls -->
+    <div id="route-anim-controls" class="anim-controls-box" style="display: none;">
+      <div class="anim-buttons">
+        <button id="btn-anim-play" class="tool-btn" type="button" aria-label="Play route animation">Play</button>
+        <button id="btn-anim-pause" class="tool-btn" type="button" aria-label="Pause route animation" disabled>Pause</button>
+        <button id="btn-anim-step" class="tool-btn" type="button" aria-label="Step forward one street">Step</button>
+        <button id="btn-anim-reset" class="tool-btn" type="button" aria-label="Reset route animation">Reset</button>
+      </div>
+      <div class="anim-speed-row">
+        <label for="anim-speed">Speed:</label>
+        <input id="anim-speed" type="range" min="0.5" max="3" step="0.25" value="1" aria-label="Animation speed">
+        <span id="anim-speed-label">1x</span>
+      </div>
     </div>
 
     <!-- Postman summary card for repeated streets -->
@@ -62,6 +77,14 @@
 
   const startSelect = document.getElementById("start-select");
   const btnFindRoute = document.getElementById("btn-find-route");
+  const animControlsBox = document.getElementById("route-anim-controls");
+  const btnPlay = document.getElementById("btn-anim-play");
+  const btnPause = document.getElementById("btn-anim-pause");
+  const btnStep = document.getElementById("btn-anim-step");
+  const btnReset = document.getElementById("btn-anim-reset");
+  const speedSlider = document.getElementById("anim-speed");
+  const speedLabel = document.getElementById("anim-speed-label");
+
   const postmanCard = document.getElementById("postman-card");
   const postmanTableBody = document.getElementById("postman-table-body");
   const postmanExtraDistance = document.getElementById("postman-extra-distance");
@@ -69,13 +92,46 @@
   const routeSteps = document.getElementById("route-steps");
   const routeTotals = document.getElementById("route-totals");
 
+  // Animation state
+  const anim = {
+    steps: [],
+    jMap: new Map(),
+    currentStepIdx: 0, // 0-based index into anim.steps
+    progress: 0,       // 0..1 along current step
+    playing: false,
+    rafId: null,
+    lastTime: 0,
+    dotEl: null
+  };
+
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function stopAnimationLoop() {
+    if (anim.rafId !== null) {
+      cancelAnimationFrame(anim.rafId);
+      anim.rafId = null;
+    }
+    anim.playing = false;
+    if (btnPlay) btnPlay.disabled = false;
+    if (btnPause) btnPause.disabled = true;
+  }
+
   /**
-   * Resets all route outputs when the map geometry or tools change.
+   * Resets all route outputs and stops animation when the map geometry or view changes.
    */
   function clearRouteDisplay() {
+    stopAnimationLoop();
+    anim.steps = [];
+    anim.currentStepIdx = 0;
+    anim.progress = 0;
+    anim.dotEl = null;
+
     const routeLayer = document.getElementById("route-layer");
     if (routeLayer) routeLayer.innerHTML = "";
 
+    if (animControlsBox) animControlsBox.style.display = "none";
     if (routeSteps) routeSteps.innerHTML = "";
     if (routeStepsContainer) routeStepsContainer.style.display = "none";
     if (routeTotals) {
@@ -91,6 +147,7 @@
    * Updates start options dropdown and button enabled status.
    */
   function updateRouteControls(graph) {
+    const previousSelection = startSelect ? startSelect.value : "";
     clearRouteDisplay();
 
     if (!window.RouteWise || typeof getVerdict !== "function") return;
@@ -112,6 +169,9 @@
         opt.textContent = `Junction ${nodeId}`;
         startSelect.appendChild(opt);
       });
+      if (previousSelection && verdict.startOptions.includes(previousSelection)) {
+        startSelect.value = previousSelection;
+      }
     }
   }
 
@@ -137,7 +197,7 @@
   }
 
   /**
-   * Draws route lines and step badges on the SVG #route-layer.
+   * Draws route lines, step badges, and the animated truck dot on SVG #route-layer.
    */
   function drawRouteOnMap(graph, steps) {
     const routeLayer = document.getElementById("route-layer");
@@ -145,6 +205,7 @@
     routeLayer.innerHTML = "";
 
     const jMap = new Map(graph.junctions.map(j => [j.id, j]));
+    anim.jMap = jMap;
     const repeatedStreetStepCounts = new Map();
 
     steps.forEach((step) => {
@@ -156,7 +217,6 @@
       let oy = 0;
 
       if (step.isRepeat) {
-        // Shift 6px sideways perpendicular to the line so original street remains visible
         const offset = computePerpendicularOffset(fromJ.x, fromJ.y, toJ.x, toJ.y, 6);
         ox = offset.ox;
         oy = offset.oy;
@@ -214,7 +274,7 @@
       badgeGroup.appendChild(text);
       routeLayer.appendChild(badgeGroup);
 
-      // 3. "x2" label for repeated streets (draw once per repeated street)
+      // 3. "x2" label for repeated streets
       if (step.isRepeat && !repeatedStreetStepCounts.has(step.streetId)) {
         repeatedStreetStepCounts.set(step.streetId, true);
         const x2Label = document.createElementNS("http://www.w3.org/2000/svg", "text");
@@ -229,6 +289,148 @@
         routeLayer.appendChild(x2Label);
       }
     });
+
+    // 4. Moving Vehicle Dot
+    if (steps.length > 0) {
+      const startJ = jMap.get(steps[0].from);
+      if (startJ) {
+        const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        dot.setAttribute("class", "route-truck-dot");
+        dot.setAttribute("r", "8");
+        dot.setAttribute("cx", startJ.x);
+        dot.setAttribute("cy", startJ.y);
+        dot.setAttribute("fill", "#16A34A");
+        dot.setAttribute("stroke", "#FFFFFF");
+        dot.setAttribute("stroke-width", "2.5");
+        routeLayer.appendChild(dot);
+        anim.dotEl = dot;
+      }
+    }
+  }
+
+  /**
+   * Updates visual state of the animation: dot position, step lines opacity, and active list item.
+   */
+  function updateAnimationVisuals(activeStepIndex1Based) {
+    // Highlight matching step row
+    const items = routeSteps.querySelectorAll(".step-item");
+    items.forEach((li) => {
+      const idx = parseInt(li.getAttribute("data-step-index"), 10);
+      if (idx === activeStepIndex1Based) {
+        li.classList.add("active-step");
+        li.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } else {
+        li.classList.remove("active-step");
+      }
+    });
+
+    // Update SVG route lines opacity to show progress when animating
+    const lines = document.querySelectorAll("#route-layer .route-step");
+    lines.forEach((line) => {
+      const idx = parseInt(line.getAttribute("data-step-index"), 10);
+      if (activeStepIndex1Based === 0) {
+        line.style.opacity = "1";
+      } else if (idx <= activeStepIndex1Based) {
+        line.style.opacity = "1";
+      } else {
+        line.style.opacity = "0.28";
+      }
+    });
+  }
+
+  /**
+   * Positions the vehicle dot along step `stepIdx` at fraction `t` (0..1).
+   */
+  function positionDotAt(stepIdx, t) {
+    if (!anim.dotEl || anim.steps.length === 0) return;
+    const clampedIdx = Math.max(0, Math.min(anim.steps.length - 1, stepIdx));
+    const step = anim.steps[clampedIdx];
+    const fromJ = anim.jMap.get(step.from);
+    const toJ = anim.jMap.get(step.to);
+    if (!fromJ || !toJ) return;
+
+    const x = fromJ.x + (toJ.x - fromJ.x) * t;
+    const y = fromJ.y + (toJ.y - fromJ.y) * t;
+    anim.dotEl.setAttribute("cx", x);
+    anim.dotEl.setAttribute("cy", y);
+  }
+
+  function tickAnimation(timestamp) {
+    if (!anim.playing) return;
+    if (!anim.lastTime) anim.lastTime = timestamp;
+    const dt = (timestamp - anim.lastTime) / 1000;
+    anim.lastTime = timestamp;
+
+    const speed = parseFloat(speedSlider ? speedSlider.value : "1") || 1;
+    // Each step takes ~0.9 seconds at 1x speed
+    anim.progress += (dt * speed) / 0.9;
+
+    if (anim.progress >= 1) {
+      anim.progress = 0;
+      anim.currentStepIdx += 1;
+      if (anim.currentStepIdx >= anim.steps.length) {
+        // Finished entire route
+        positionDotAt(anim.steps.length - 1, 1);
+        updateAnimationVisuals(anim.steps.length);
+        stopAnimationLoop();
+        return;
+      }
+    }
+
+    positionDotAt(anim.currentStepIdx, anim.progress);
+    updateAnimationVisuals(anim.currentStepIdx + 1);
+    anim.rafId = requestAnimationFrame(tickAnimation);
+  }
+
+  function handlePlay() {
+    if (anim.steps.length === 0) return;
+
+    if (prefersReducedMotion()) {
+      stopAnimationLoop();
+      anim.currentStepIdx = anim.steps.length - 1;
+      anim.progress = 1;
+      positionDotAt(anim.currentStepIdx, 1);
+      updateAnimationVisuals(anim.steps.length);
+      return;
+    }
+
+    if (anim.currentStepIdx >= anim.steps.length) {
+      anim.currentStepIdx = 0;
+      anim.progress = 0;
+    }
+
+    anim.playing = true;
+    anim.lastTime = 0;
+    if (btnPlay) btnPlay.disabled = true;
+    if (btnPause) btnPause.disabled = false;
+    updateAnimationVisuals(anim.currentStepIdx + 1);
+    anim.rafId = requestAnimationFrame(tickAnimation);
+  }
+
+  function handlePause() {
+    stopAnimationLoop();
+  }
+
+  function handleStep() {
+    if (anim.steps.length === 0) return;
+    stopAnimationLoop();
+
+    if (anim.currentStepIdx >= anim.steps.length) {
+      anim.currentStepIdx = 0;
+    }
+    positionDotAt(anim.currentStepIdx, 1);
+    updateAnimationVisuals(anim.currentStepIdx + 1);
+    anim.currentStepIdx += 1;
+    anim.progress = 0;
+  }
+
+  function handleReset() {
+    if (anim.steps.length === 0) return;
+    stopAnimationLoop();
+    anim.currentStepIdx = 0;
+    anim.progress = 0;
+    positionDotAt(0, 0);
+    updateAnimationVisuals(0);
   }
 
   /**
@@ -275,7 +477,7 @@
         postmanTableBody.appendChild(tr);
       });
 
-      postmanExtraDistance.textContent = `Extra distance = ${result.extraDistance}`;
+      postmanExtraDistance.textContent = `Extra distance = ${result.extraDistance} m`;
       postmanCard.hidden = false;
     } else {
       postmanCard.hidden = true;
@@ -310,14 +512,28 @@
     }
     routeTotals.style.display = "block";
 
-    // 4. Draw Route onto SVG layer
+    // 4. Draw Route onto SVG layer & initialize animation state
+    stopAnimationLoop();
+    anim.steps = result.steps.slice();
+    anim.currentStepIdx = 0;
+    anim.progress = 0;
     drawRouteOnMap(graph, result.steps);
+    if (animControlsBox) animControlsBox.style.display = "flex";
 
     window.RouteWise.showToast(`Route found! Total distance: ${result.totalDistance} m`);
   }
 
   // Bind Events
   btnFindRoute.addEventListener("click", handleFindRoute);
+  if (btnPlay) btnPlay.addEventListener("click", handlePlay);
+  if (btnPause) btnPause.addEventListener("click", handlePause);
+  if (btnStep) btnStep.addEventListener("click", handleStep);
+  if (btnReset) btnReset.addEventListener("click", handleReset);
+  if (speedSlider && speedLabel) {
+    speedSlider.addEventListener("input", () => {
+      speedLabel.textContent = `${speedSlider.value}x`;
+    });
+  }
 
   // Subscribe to Map changes from planner.js
   if (window.RouteWise) {
