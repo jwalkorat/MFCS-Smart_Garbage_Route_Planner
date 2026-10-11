@@ -29,7 +29,7 @@ Plans an optimal route that covers every street of a colony using **Euler circui
 
 ## 2. Real Map Integration
 
-- **Street Map Underlay:** Uses **Leaflet 1.9.4** and **OpenStreetMap** tiles (`© OpenStreetMap contributors`), centered on Ahmedabad by default, with a synchronized SVG graph overlay.
+- **Street Map Underlay:** Uses **Leaflet 1.9.4** and **CARTO Voyager** basemap tiles (`© OpenStreetMap contributors © CARTO`) with a free domain-restricted key (attribution must stay visible), centered on Ahmedabad by default, with a synchronized SVG graph overlay.
 - **Place Search:** Uses **OpenStreetMap Nominatim** (`https://nominatim.openstreetmap.org/search`) for lightweight place lookup (e.g., *"Nirma University"*).
 - **Offline & Plain Grid Fallback:** An internet connection is needed for map tiles and place search. Users can switch between **Street map** and **Plain grid** at any time, and the plain dotted grid works completely offline.
 - **Haversine Street Lengths:** When drawing a street between two junctions on the map, the default length is the straight-line spherical distance in metres calculated with the **haversine formula** ($R = 6{,}371{,}000\text{ m}$), not curved road distance. Users can accept or type a custom length.

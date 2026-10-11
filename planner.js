@@ -750,6 +750,11 @@
       return;
     }
 
+    // Free CARTO basemaps key. It is visible in the browser by design, so it is restricted by domain in the CARTO dashboard. Do not reuse it in other projects.
+    const CARTO_KEY = "cb1_4gre_1_4817c49ad367081d31fea6e6";
+    const TILE_URL = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=" + CARTO_KEY;
+    const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
     // Hide plain grid when real map is active
     if (gridRect) gridRect.style.display = "none";
 
@@ -765,12 +770,11 @@
       inertia: true
     });
 
-    tileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-      subdomains: "abcd",
+    tileLayer = L.tileLayer(TILE_URL, {
       maxZoom: 20,
       updateWhenZooming: false,
       keepBuffer: 4,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      attribution: TILE_ATTRIBUTION
     }).addTo(leafletMap);
 
     tileLayer.on("tileerror", () => {
